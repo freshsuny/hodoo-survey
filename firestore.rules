@@ -1,0 +1,67 @@
+rules_version = '2';
+
+// ==========================================================================
+// 호두 만족도 게임 - Firestore 보안 규칙
+//
+// 적용 방법: Firebase 콘솔 → Firestore Database → 규칙(Rules) 탭에 전체 복붙 → 게시
+// 콘솔: https://console.firebase.google.com/project/hodoo-survey/firestore/rules
+//
+// 정책 요약
+//  - programs : 누구나 읽기(QR 참가자가 프로그램 정보를 받기 위함)
+//               쓰기는 필드/크기 검증을 통과한 경우만 허용 (관리자 페이지 동작용)
+//  - responses: 누구나 생성(참가자 응답 제출), 수정 금지
+//               읽기/삭제는 현재 임시 개방 (관리자 페이지 동작용)
+//
+// 보안 강화 권장 (운영 단계):
+//   행사 종료 후 또는 운영 안정화 시점에 Firebase Authentication을 추가하고
+//   관리자 작업(write/delete on programs, read/delete on responses)을
+//   `request.auth.token.admin == true` 등 커스텀 클레임 기반으로 제한할 것.
+// ==========================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------- 프로그램 --------
+    match /programs/{programId} {
+      allow read: if true;
+
+      allow create: if
+        request.resource.data.keys().hasAll(['name','questions']) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.name.size() < 200 &&
+        request.resource.data.questions is list &&
+        request.resource.data.questions.size() > 0 &&
+        request.resource.data.questions.size() <= 30;
+
+      allow update: if
+        request.resource.data.keys().hasAll(['name','questions']) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() < 200 &&
+        request.resource.data.questions is list &&
+        request.resource.data.questions.size() <= 30;
+
+      allow delete: if true;
+    }
+
+    // -------- 응답 --------
+    match /responses/{responseId} {
+      allow create: if
+        request.resource.data.keys().hasAll(['programId','name','phone','answers']) &&
+        request.resource.data.programId is string &&
+        request.resource.data.programId.size() > 0 &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.name.size() < 50 &&
+        request.resource.data.phone is string &&
+        request.resource.data.phone.size() <= 4 &&
+        request.resource.data.answers is list &&
+        request.resource.data.answers.size() <= 30;
+
+      // 관리자 전용 액세스 (현재는 인증 미사용 상태로 임시 개방)
+      allow read: if true;
+      allow update: if false;
+      allow delete: if true;
+    }
+  }
+}
