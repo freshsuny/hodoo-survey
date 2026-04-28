@@ -8,14 +8,14 @@
 <title>호두 달리기 만족도 게임</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
-  html,body{height:100%;overflow:hidden;background:#fff5e6;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#333}
+  html,body{height:100%;overflow:hidden;background:#fbf3dc;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#333;image-rendering:pixelated}
   button{border:none;cursor:pointer;font-family:inherit}
   input{font-family:inherit;font-size:16px}
   .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
   .hidden{display:none!important}
 
   /* Loading */
-  #loading{background:linear-gradient(180deg,#fff2d9 0%,#ffe0b8 100%)}
+  #loading{background:#fbf3dc}
   .spinner{width:50px;height:50px;border:5px solid #d9b88a;border-top-color:#7d5a3c;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:16px}
   @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -39,14 +39,15 @@
   .net-badge.offline{color:#c0392b}
 
   /* Game */
-  #game{background:linear-gradient(180deg,#cfe9ff 0%,#fde6c1 70%,#e2b478 100%);padding:0}
-  #q-box{position:absolute;top:0;left:0;right:0;background:rgba(255,255,255,.96);padding:14px 16px 12px;box-shadow:0 4px 14px rgba(0,0,0,.08);z-index:5}
-  #q-counter{font-size:12px;font-weight:700;color:#a06d3c;letter-spacing:.5px}
+  #game{background:#fbf3dc;padding:0}
+  #q-box{position:absolute;top:0;left:0;right:0;background:#fff;border-bottom:3px solid #7d5a3c;padding:14px 16px 12px;z-index:5}
+  #q-counter{font-size:11px;font-weight:700;color:#a06d3c;letter-spacing:1px}
   #q-text{font-size:18px;font-weight:800;color:#3a2814;line-height:1.35;margin-top:4px;word-break:keep-all}
-  #hud{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;padding:10px 16px;background:rgba(255,255,255,.85);font-size:13px;color:#5a3a1c;font-weight:600;z-index:5}
-  #tap-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.55);color:#fff;padding:14px 22px;border-radius:14px;font-size:16px;font-weight:700;pointer-events:none;animation:pulse 1s infinite alternate;z-index:6}
+  #hud{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;padding:10px 16px;background:#fff;border-top:3px solid #7d5a3c;font-size:13px;color:#5a3a1c;font-weight:700;z-index:5}
+  #tap-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.7);color:#fff;padding:14px 22px;border-radius:0;font-size:15px;font-weight:700;pointer-events:none;animation:pulse 1s infinite alternate;z-index:6;letter-spacing:1px;border:3px solid #fff;font-family:monospace}
   @keyframes pulse{from{transform:translate(-50%,-50%) scale(1)}to{transform:translate(-50%,-50%) scale(1.06)}}
-  #canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  #canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;image-rendering:pixelated;image-rendering:crisp-edges}
+  #slot-indicator{position:absolute;top:90px;right:14px;background:rgba(0,0,0,.55);color:#fff;padding:6px 10px;font-size:12px;font-weight:700;font-family:monospace;letter-spacing:1px;z-index:6;pointer-events:none;border:2px solid #fff}
 
   /* Result */
   #result{background:linear-gradient(180deg,#fff2d9 0%,#ffd7a3 100%);overflow-y:auto}
@@ -84,9 +85,9 @@
     <div id="form-err" class="err"></div>
     <button id="start-btn" class="start-btn">시작하기</button>
     <div class="help">
-      🌰 화면을 탭하면 호두가 점프합니다.<br>
-      벽에 다가올 때 점프 횟수만큼 위로 올라가요.<br>
-      원하는 만족도 칸으로 통과하세요!
+      🌰 화면을 탭하면 호두과장이 점프합니다.<br>
+      탭한 횟수만큼 위 칸으로 올라갑니다 (1~5).<br>
+      원하는 만족도 칸으로 벽을 통과하세요!
     </div>
   </div>
 </div>
@@ -97,10 +98,11 @@
     <div id="q-text"></div>
   </div>
   <canvas id="canvas"></canvas>
-  <div id="tap-hint">탭해서 점프!</div>
+  <div id="slot-indicator">SLOT 1</div>
+  <div id="tap-hint">▶ 탭해서 점프!</div>
   <div id="hud">
     <span>⏱ <span id="timer">0.0</span>s</span>
-    <span>🚧 패널티 <span id="penalty">0.0</span>s</span>
+    <span>Q <span id="q-progress">1/1</span></span>
   </div>
 </div>
 
@@ -109,7 +111,6 @@
     <div class="title">🎉 완주!</div>
     <div class="subtitle" id="result-name"></div>
     <div class="result-stat"><span>완주 시간</span><strong id="r-time">0.0초</strong></div>
-    <div class="result-stat"><span>패널티</span><strong id="r-penalty">0.0초</strong></div>
     <div class="result-stat"><span>응답 수</span><strong id="r-count">0개</strong></div>
     <div id="upload-status" class="upload-status pending">업로드 중...</div>
     <button id="replay-btn" class="replay-btn">새 응답 시작</button>
@@ -134,6 +135,7 @@ const db = getFirestore(app);
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const programId = params.get("p");
+const isDemo = params.get("demo") === "1";
 
 const SLOT_LABELS = ["매우만족","만족","보통","불만족","매우불만족"];
 const SLOT_COLORS = ["#2e7d32","#7cb342","#fbc02d","#fb8c00","#e53935"];
@@ -142,7 +144,6 @@ const PROG_CACHE_KEY = pid => "hodoo_prog_" + pid;
 
 let program = null;
 
-// ===== 네트워크 표시 =====
 function updateNet(){
   const b = $("net-badge");
   if (navigator.onLine){ b.className = "net-badge online"; b.textContent = "● 온라인"; }
@@ -152,7 +153,6 @@ window.addEventListener("online", () => { updateNet(); flushQueue(); });
 window.addEventListener("offline", updateNet);
 updateNet();
 
-// ===== 큐 (오프라인 응답 자동 업로드) =====
 async function flushQueue(){
   const q = JSON.parse(localStorage.getItem(QUEUE_KEY) || "[]");
   if (!q.length) return;
@@ -165,8 +165,17 @@ async function flushQueue(){
 }
 flushQueue();
 
-// ===== 프로그램 로드 =====
 async function loadProgram(){
+  if (isDemo){
+    program = { id:"demo", name:"데모 프로그램", date:"2026-04-28", surveyName:"미리보기 데모",
+      questions:[
+        {text:"오늘 프로그램에 만족하셨나요?"},
+        {text:"진행자 안내는 친절했나요?"},
+        {text:"다음에도 참여하고 싶나요?"}
+      ]};
+    showIntro();
+    return;
+  }
   if (!programId){
     showError("프로그램 ID가 없습니다.\nQR을 다시 스캔해주세요.");
     return;
@@ -199,10 +208,8 @@ function showIntro(){
   const saved = JSON.parse(sessionStorage.getItem("hodoo_user")||"{}");
   if (saved.name) $("nickname").value = saved.name;
 }
-
 function escapeHtml(s){return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
-// ===== 시작 버튼 =====
 $("start-btn").addEventListener("click", () => {
   const name = $("nickname").value.trim();
   const phone = $("phone").value.trim();
@@ -213,28 +220,104 @@ $("start-btn").addEventListener("click", () => {
   startGame(name, phone);
 });
 
-// ===== 게임 =====
+// ===== 픽셀 아트 캐릭터 (호두과장 인스파이어) =====
+// 색상 키: '.'=투명, b=호두갈색, B=짙은갈색, K=검정, W=하양, g=수트회색, G=짙은회색, r=빨강(타이), s=짙은입
+const PALETTE = {
+  ".": null,
+  "b": "#9a6432",
+  "B": "#5e3a17",
+  "K": "#1a1a1a",
+  "W": "#ffffff",
+  "g": "#4a4a4a",
+  "G": "#2a2a2a",
+  "r": "#cc3838",
+  "s": "#3a2010"
+};
+
+const SPRITE_BASE = [
+  "....BBBBBBB.....",
+  "...BbbbbbbbB....",
+  "..BbBbbbbbbbB...",
+  "..BbbBbbbbbBb...",
+  ".bbbbbbbbbbbbb..",
+  ".bbWWbbBbbWWbb..",
+  ".bbWKbbBbbWKbb..",
+  ".bbWWbbBbbWWbb..",
+  ".bbbbbbbbbbbbb..",
+  ".bbbbbssssbbbb..",
+  "..bbBssssssBbb..",
+  "...bbbbbbbbbb...",
+  "....BBBBBBBB....",
+  "....gggggggg....",
+  "...ggWWrWWggg...",
+  "..gggWWrWWgggg..",
+  "..gggWWrWWgggg..",
+  ".ggggWWrWWggggg.",
+  ".ggggWWrWWggggg.",
+  ".gggggWrWgggggg.",
+  ".ggggggrgggggg..",
+  "ggggggGGgggggggg",
+];
+const LEGS_A = [
+  "..ggg......ggg..",
+  "..KKK......KKK.."
+];
+const LEGS_B = [
+  "...gg......gg...",
+  "..KKK......KKK.."
+];
+const SPRITE_W = 16;
+const SPRITE_H = SPRITE_BASE.length + LEGS_A.length;
+
+const PX = 3;
+const CHAR_W = SPRITE_W * PX;
+const CHAR_H = SPRITE_H * PX;
+const HOLE_H = CHAR_H + 14;
+const WALL_W = 12 * PX;
+const SLOTS = 5;
+
 const cv = $("canvas");
 const cx = cv.getContext("2d");
-let W=0, H=0, DPR=1;
+let W=0, H=0, DPR=1, TOP_MARGIN=100, BOTTOM_MARGIN=70;
+
 function resize(){
   DPR = Math.min(window.devicePixelRatio||1, 2);
-  W = cv.clientWidth = window.innerWidth;
-  H = cv.clientHeight = window.innerHeight;
-  cv.width = W*DPR; cv.height = H*DPR;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  cv.width = Math.round(W*DPR);
+  cv.height = Math.round(H*DPR);
+  cv.style.width = W + "px";
+  cv.style.height = H + "px";
   cx.setTransform(DPR,0,0,DPR,0,0);
+  cx.imageSmoothingEnabled = false;
+  // q-box / hud 높이 측정해서 마진 보정
+  const qb = $("q-box").getBoundingClientRect().height || 70;
+  const hu = $("hud").getBoundingClientRect().height || 40;
+  TOP_MARGIN = qb + 18;
+  BOTTOM_MARGIN = hu + 26;
 }
-window.addEventListener("resize", resize);
+window.addEventListener("resize", () => { if (game) resize(); });
 
-const SLOTS = 5;
-const HOLE_H = 56;
-const WALL_W = 38;
-const TOP_MARGIN = 110;   // q-box 아래
-const BOTTOM_MARGIN = 70; // hud 위 (지면)
-function slotY(slot){
-  const ground = H - BOTTOM_MARGIN - HOLE_H/2;
-  const top = TOP_MARGIN + HOLE_H/2;
-  return ground - ((slot-1)/(SLOTS-1)) * (ground - top);
+function slotCenterY(s){
+  const top = TOP_MARGIN + CHAR_H/2 + 4;
+  const bottom = H - BOTTOM_MARGIN - CHAR_H/2;
+  return bottom - ((s-1)/(SLOTS-1)) * (bottom - top);
+}
+
+function drawSprite(rows, ox, oy){
+  const h = rows.length;
+  const w = rows[0].length;
+  for (let r=0; r<h; r++){
+    const line = rows[r];
+    for (let c=0; c<w; c++){
+      const ch = line[c];
+      const color = PALETTE[ch];
+      if (color){
+        cx.fillStyle = color;
+        cx.fillRect(Math.round(ox + c*PX), Math.round(oy + r*PX), PX, PX);
+      }
+    }
+  }
 }
 
 let game = null;
@@ -242,299 +325,269 @@ let game = null;
 function startGame(name, phone){
   $("intro").classList.add("hidden");
   $("game").classList.remove("hidden");
+  // 레이아웃 강제 후 동기적으로 사이즈 측정/초기화 (hidden 탭에서도 동작)
+  void $("game").offsetHeight;
   resize();
+  initGame(name, phone);
+}
+
+function initGame(name, phone){
   game = {
     name, phone,
     questions: program.questions,
     qIdx: 0,
     answers: [],
     startTs: performance.now(),
-    penaltyMs: 0,
     finished: false,
-    runX: 0,            // 배경 스크롤
+    runX: 0,
     walls: [],
-    player: { x: Math.max(80, W*0.18), y: slotY(1), targetSlot: 1, anim: 1 },
-    nextWallTimer: 0,
-    showHint: true
+    player: { x: Math.max(70, W*0.18), cy: slotCenterY(1), targetSlot: 1 },
+    showHint: true,
+    frame: 0
   };
-  spawnNextWall(900);
+  spawnNextWall(900, 0);
+  window.__game = game;
   $("q-text").textContent = game.questions[0].text || game.questions[0];
-  $("q-counter").textContent = "Q1 / "+game.questions.length;
+  $("q-counter").textContent = "QUESTION 1";
+  $("q-progress").textContent = "1/" + game.questions.length;
+  $("slot-indicator").textContent = "SLOT 1 (매우만족)";
+  $("slot-indicator").style.borderColor = SLOT_COLORS[0];
   $("tap-hint").classList.remove("hidden");
-  setTimeout(()=>{ if(game) game.showHint=false; $("tap-hint").classList.add("hidden"); }, 2200);
-  requestAnimationFrame(loop);
+  setTimeout(() => { if(game) game.showHint = false; $("tap-hint").classList.add("hidden"); }, 2400);
+  lastT = 0;
+  scheduleFrame();
 }
 
-function spawnNextWall(distance){
+function scheduleFrame(){
+  if (document.hidden) setTimeout(() => loop(performance.now()), 16);
+  else requestAnimationFrame(loop);
+}
+
+function spawnNextWall(distance, qIdx){
   game.walls.push({
     x: W + distance,
     passed: false,
-    qIdx: game.qIdx + (game.walls.length)
+    qIdx: qIdx
   });
 }
 
 function jump(){
   if (!game || game.finished) return;
-  game.showHint = false;
-  $("tap-hint").classList.add("hidden");
+  if (game.showHint){ game.showHint = false; $("tap-hint").classList.add("hidden"); }
   if (game.player.targetSlot < SLOTS){
     game.player.targetSlot++;
-    game.player.anim = 0; // 점프중 표시
+    updateSlotIndicator();
   }
+}
+function updateSlotIndicator(){
+  const s = game.player.targetSlot;
+  $("slot-indicator").textContent = "SLOT " + s + " ("+SLOT_LABELS[s-1]+")";
+  $("slot-indicator").style.borderColor = SLOT_COLORS[s-1];
 }
 cv.addEventListener("touchstart", e => { e.preventDefault(); jump(); }, {passive:false});
 cv.addEventListener("mousedown", jump);
-window.addEventListener("keydown", e => { if (e.code==="Space"){ e.preventDefault(); jump(); }});
+window.addEventListener("keydown", e => { if (e.code==="Space"||e.code==="ArrowUp"){ e.preventDefault(); jump(); }});
 
 let lastT = 0;
 function loop(t){
   if (!game) return;
-  const dt = Math.min(50, t - lastT) || 16;
+  const dt = lastT ? Math.min(50, t - lastT) : 16;
   lastT = t;
 
-  cx.clearRect(0,0,W,H);
-  drawBackground(dt);
+  // 배경
+  cx.fillStyle = "#fbf3dc";
+  cx.fillRect(0,0,W,H);
 
-  const SPEED = 0.22; // px per ms
+  drawClouds();
+  drawGround();
+
+  const SPEED = 0.22;
   const moveX = SPEED * dt;
   game.runX += moveX;
 
-  // 플레이어 y 부드럽게 이동
-  const targetY = slotY(game.player.targetSlot);
-  const dy = targetY - game.player.y;
-  game.player.y += dy * 0.18;
-  if (Math.abs(dy) < 1){ game.player.anim = 1; }
+  // 플레이어 y 부드럽게
+  const targetY = slotCenterY(game.player.targetSlot);
+  game.player.cy += (targetY - game.player.cy) * 0.22;
 
-  // 벽 업데이트
+  // 벽 업데이트 + 충돌
   for (const w of game.walls){
     w.x -= moveX;
     drawWall(w);
-    if (!w.passed && w.x <= game.player.x){
+    if (!w.passed && w.x + WALL_W*0.5 <= game.player.x){
       w.passed = true;
       const slot = game.player.targetSlot;
-      const slotPosY = slotY(slot);
-      const offsetFromCenter = Math.abs(game.player.y - slotPosY);
-      let pen = 0;
-      if (offsetFromCenter > HOLE_H*0.35){ pen = 1500; }
-      else if (offsetFromCenter > HOLE_H*0.20){ pen = 700; }
-      game.penaltyMs += pen;
       game.answers.push({ q: game.questions[w.qIdx].text || game.questions[w.qIdx], a: slot, label: SLOT_LABELS[slot-1] });
-      flashHole(slot, pen>0);
-      // 다음 질문
+      flashHole(slot);
       game.qIdx++;
       if (game.qIdx < game.questions.length){
         $("q-text").textContent = game.questions[game.qIdx].text || game.questions[game.qIdx];
-        $("q-counter").textContent = "Q"+(game.qIdx+1)+" / "+game.questions.length;
-        spawnNextWall(700);
-        // 다음 벽 위해 슬롯 리셋 (착지)
+        $("q-counter").textContent = "QUESTION " + (game.qIdx+1);
+        $("q-progress").textContent = (game.qIdx+1) + "/" + game.questions.length;
+        spawnNextWall(700, game.qIdx);
         game.player.targetSlot = 1;
+        updateSlotIndicator();
       } else {
         finishGame();
       }
     }
   }
-  // 지나간 벽 정리
-  game.walls = game.walls.filter(w => w.x > -100);
+  game.walls = game.walls.filter(w => w.x > -120);
 
   drawPlayer();
+  drawFlash();
 
   // HUD
   const elapsed = (performance.now() - game.startTs)/1000;
   $("timer").textContent = elapsed.toFixed(1);
-  $("penalty").textContent = (game.penaltyMs/1000).toFixed(1);
 
-  if (!game.finished) requestAnimationFrame(loop);
+  if (!game.finished) scheduleFrame();
 }
 
-// ===== 그리기 =====
-function drawBackground(dt){
-  // 하늘 그라디언트는 CSS, 여기선 지면과 구름
-  // 구름
-  cx.fillStyle = "rgba(255,255,255,.7)";
+// 구름 (픽셀)
+function drawClouds(){
+  cx.fillStyle = "#e8dcb6";
   for (let i=0;i<3;i++){
-    const cx1 = ((i*220 - game.runX*0.15) % (W+220) + (W+220)) % (W+220) - 110;
-    const cy = 60 + i*22;
-    cloud(cx1, cy);
+    const baseX = ((i*240 - game.runX*0.12) % (W+260) + (W+260)) % (W+260) - 130;
+    const cy = TOP_MARGIN + 30 + i*18;
+    pxRect(baseX, cy, 6*PX, 2*PX);
+    pxRect(baseX+2*PX, cy-PX, 8*PX, 2*PX);
+    pxRect(baseX+4*PX, cy-2*PX, 6*PX, 2*PX);
+    pxRect(baseX+10*PX, cy, 4*PX, 2*PX);
   }
-  // 지면
-  const ground = H - BOTTOM_MARGIN + 6;
-  cx.fillStyle = "#caa06a";
-  cx.fillRect(0, ground, W, H - ground);
-  // 줄무늬 지면 (스크롤)
-  cx.fillStyle = "#a8814f";
-  for (let x=-((game.runX)%40); x<W; x+=40){
-    cx.fillRect(x, ground+8, 24, 4);
-  }
-  // 잔디
-  cx.fillStyle = "#86b25c";
-  cx.fillRect(0, ground-4, W, 4);
 }
-function cloud(x,y){
-  cx.beginPath();
-  cx.arc(x, y, 18, 0, Math.PI*2);
-  cx.arc(x+18, y-4, 16, 0, Math.PI*2);
-  cx.arc(x+34, y, 14, 0, Math.PI*2);
-  cx.fill();
+
+function drawGround(){
+  const y = H - BOTTOM_MARGIN;
+  // 굵은 지면 라인
+  cx.fillStyle = "#7d5a3c";
+  cx.fillRect(0, y, W, PX);
+  // 점선 디테일 (스크롤)
+  cx.fillStyle = "#a07c4a";
+  const dashW = 4*PX;
+  const gap = 3*PX;
+  const period = dashW + gap;
+  const offset = -((game.runX) % period);
+  for (let x = offset; x < W; x += period){
+    cx.fillRect(Math.round(x), y + PX, dashW, PX);
+  }
+  // 작은 자갈
+  cx.fillStyle = "#8b6238";
+  for (let i=0; i<6; i++){
+    const px = ((i*180 - game.runX*0.6) % (W+80) + (W+80)) % (W+80) - 40;
+    pxRect(px, y + 3*PX, PX, PX);
+    pxRect(px + 4*PX, y + 4*PX, PX, PX);
+  }
+}
+
+function pxRect(x,y,w,h){
+  cx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
 }
 
 function drawWall(w){
-  const wallX = w.x;
+  const wx = w.x;
   const ground = H - BOTTOM_MARGIN;
   const top = TOP_MARGIN;
+  if (wx > W + WALL_W) return;
+  if (wx < -WALL_W) return;
 
   // 구멍 영역
   const holes = [];
   for (let s=1;s<=SLOTS;s++){
-    const sy = slotY(s);
-    holes.push({y1: sy - HOLE_H/2, y2: sy + HOLE_H/2, slot: s});
+    const cy = slotCenterY(s);
+    holes.push({y1: cy - HOLE_H/2, y2: cy + HOLE_H/2, slot: s});
   }
-  holes.sort((a,b)=>a.y1-b.y1); // 위→아래
+  holes.sort((a,b)=>a.y1-b.y1);
 
-  // 벽 (위→아래 빈틈 사이 채우기)
-  cx.fillStyle = "#6b4a8a";
-  cx.fillRect(wallX, top, WALL_W, holes[0].y1 - top);
+  // 벽 본체 (픽셀 컬러 블록)
+  cx.fillStyle = "#3d2a5c";
+  if (holes[0].y1 > top) pxRect(wx, top, WALL_W, holes[0].y1 - top);
   for (let i=0;i<holes.length-1;i++){
-    cx.fillRect(wallX, holes[i].y2, WALL_W, holes[i+1].y1 - holes[i].y2);
+    pxRect(wx, holes[i].y2, WALL_W, holes[i+1].y1 - holes[i].y2);
   }
-  cx.fillRect(wallX, holes[holes.length-1].y2, WALL_W, ground - holes[holes.length-1].y2);
+  if (holes[holes.length-1].y2 < ground) pxRect(wx, holes[holes.length-1].y2, WALL_W, ground - holes[holes.length-1].y2);
 
-  // 벽 모서리 하이라이트
-  cx.fillStyle = "rgba(255,255,255,.18)";
-  cx.fillRect(wallX, top, 4, ground - top);
-  cx.fillStyle = "rgba(0,0,0,.18)";
-  cx.fillRect(wallX+WALL_W-4, top, 4, ground - top);
+  // 픽셀 디테일 (벽돌 패턴)
+  cx.fillStyle = "#5a4280";
+  for (let by = top; by < ground; by += PX*4){
+    if (holes.some(h => by >= h.y1 - PX && by < h.y2)) continue;
+    pxRect(wx, by, PX, PX);
+    pxRect(wx + WALL_W - PX, by + PX*2, PX, PX);
+  }
+  // 좌우 모서리 음영
+  cx.fillStyle = "#1f1238";
+  for (let i=0;i<holes.length-1;i++){
+    pxRect(wx + WALL_W - PX, holes[i].y2, PX, holes[i+1].y1 - holes[i].y2);
+  }
 
   // 구멍 테두리
   for (let s=1;s<=SLOTS;s++){
-    const sy = slotY(s);
-    cx.strokeStyle = SLOT_COLORS[s-1];
-    cx.lineWidth = 3;
-    cx.strokeRect(wallX-1, sy - HOLE_H/2, WALL_W+2, HOLE_H);
+    const cy = slotCenterY(s);
+    const isTarget = game && (game.player.targetSlot === s);
+    cx.fillStyle = SLOT_COLORS[s-1];
+    // 위/아래 라인
+    pxRect(wx - PX, cy - HOLE_H/2 - PX, WALL_W + PX*2, PX);
+    pxRect(wx - PX, cy + HOLE_H/2, WALL_W + PX*2, PX);
+    if (isTarget){
+      // 강조 (점멸)
+      const alpha = 0.4 + 0.4*Math.sin(performance.now()/120);
+      cx.save();
+      cx.globalAlpha = alpha;
+      cx.fillStyle = SLOT_COLORS[s-1];
+      pxRect(wx - PX, cy - HOLE_H/2, PX, HOLE_H);
+      pxRect(wx + WALL_W, cy - HOLE_H/2, PX, HOLE_H);
+      cx.restore();
+    }
   }
 
   // 라벨
-  if (wallX < W && wallX > -120){
-    cx.font = "700 13px -apple-system,sans-serif";
+  if (wx < W + 30 && wx > -200){
+    cx.font = "700 12px monospace";
     cx.textAlign = "left";
     cx.textBaseline = "middle";
     for (let s=1;s<=SLOTS;s++){
-      const sy = slotY(s);
-      // 라벨 배경
-      const text = (s)+". "+SLOT_LABELS[s-1];
-      const w1 = cx.measureText(text).width + 10;
-      cx.fillStyle = "rgba(255,255,255,.85)";
-      cx.fillRect(wallX + WALL_W + 4, sy - 11, w1, 22);
+      const cy = slotCenterY(s);
+      const text = s + "." + SLOT_LABELS[s-1];
+      const tw = cx.measureText(text).width + 10;
+      cx.fillStyle = "rgba(255,255,255,.92)";
+      pxRect(wx + WALL_W + 6, cy - 10, tw, 20);
       cx.fillStyle = SLOT_COLORS[s-1];
-      cx.fillRect(wallX + WALL_W + 4, sy - 11, 4, 22);
+      pxRect(wx + WALL_W + 6, cy - 10, PX, 20);
       cx.fillStyle = "#3a2814";
-      cx.fillText(text, wallX + WALL_W + 12, sy);
+      cx.fillText(text, wx + WALL_W + 12, cy);
     }
   }
 }
 
 let flashState = null;
-function flashHole(slot, isMiss){
-  flashState = { slot, t: 0, miss: isMiss };
+function flashHole(slot){ flashState = { slot, t: 0 }; }
+function drawFlash(){
+  if (!flashState) return;
+  flashState.t += 1;
+  const cy = slotCenterY(flashState.slot);
+  cx.save();
+  cx.globalAlpha = Math.max(0, 1 - flashState.t/22);
+  cx.fillStyle = SLOT_COLORS[flashState.slot-1];
+  cx.fillRect(0, cy - HOLE_H/2, W, HOLE_H);
+  cx.restore();
+  if (flashState.t > 22) flashState = null;
 }
 
 function drawPlayer(){
-  const p = game.player;
-  const x = p.x, y = p.y;
-  const bob = Math.sin(performance.now()/100) * 1.5;
+  game.frame++;
+  const bobOffset = Math.floor(game.frame/6) % 2 === 0 ? 0 : -PX;
+  const legs = Math.floor(game.frame/8) % 2 === 0 ? LEGS_A : LEGS_B;
+  const sprite = SPRITE_BASE.concat(legs);
+
+  const ox = game.player.x - CHAR_W/2;
+  const oy = game.player.cy - CHAR_H/2 + bobOffset;
 
   // 그림자
   cx.fillStyle = "rgba(0,0,0,.18)";
-  cx.beginPath();
-  cx.ellipse(x, H - BOTTOM_MARGIN + 4, 22, 5, 0, 0, Math.PI*2);
-  cx.fill();
+  pxRect(ox + 2*PX, game.player.cy + CHAR_H/2 - PX, CHAR_W - 4*PX, PX);
 
-  cx.save();
-  cx.translate(x, y + bob);
-
-  // 호두 몸체
-  cx.fillStyle = "#a06a3a";
-  cx.beginPath();
-  cx.ellipse(0, 0, 24, 28, 0, 0, Math.PI*2);
-  cx.fill();
-
-  // 호두 무늬 (세로 갈라짐)
-  cx.strokeStyle = "#6b4220";
-  cx.lineWidth = 2;
-  cx.beginPath();
-  cx.moveTo(0, -24); cx.lineTo(0, 24);
-  cx.stroke();
-
-  // 호두 텍스처 (좌우 곡선)
-  cx.lineWidth = 1.4;
-  cx.beginPath();
-  cx.moveTo(-12,-14); cx.quadraticCurveTo(-6,-4,-12,8);
-  cx.moveTo(12,-14); cx.quadraticCurveTo(6,-4,12,8);
-  cx.stroke();
-
-  // 작은 잎 (꼭지)
-  cx.fillStyle = "#5fa84d";
-  cx.beginPath();
-  cx.ellipse(-2, -28, 6, 3, -0.5, 0, Math.PI*2);
-  cx.fill();
-  cx.fillStyle = "#3d7a30";
-  cx.beginPath();
-  cx.ellipse(3, -29, 4, 2, 0.4, 0, Math.PI*2);
-  cx.fill();
-
-  // 얼굴 영역 (밝은 베이지)
-  cx.fillStyle = "#ffe5c4";
-  cx.beginPath();
-  cx.ellipse(0, 4, 13, 11, 0, 0, Math.PI*2);
-  cx.fill();
-
-  // 볼터치
-  cx.fillStyle = "rgba(244,135,135,.65)";
-  cx.beginPath(); cx.arc(-7, 7, 2.5, 0, Math.PI*2); cx.fill();
-  cx.beginPath(); cx.arc(7, 7, 2.5, 0, Math.PI*2); cx.fill();
-
-  // 눈
-  cx.fillStyle = "#222";
-  cx.beginPath(); cx.arc(-4, 1, 1.8, 0, Math.PI*2); cx.fill();
-  cx.beginPath(); cx.arc(4, 1, 1.8, 0, Math.PI*2); cx.fill();
-  cx.fillStyle = "#fff";
-  cx.beginPath(); cx.arc(-3.5, .5, .6, 0, Math.PI*2); cx.fill();
-  cx.beginPath(); cx.arc(4.5, .5, .6, 0, Math.PI*2); cx.fill();
-
-  // 입
-  cx.strokeStyle = "#222";
-  cx.lineWidth = 1.5;
-  cx.lineCap = "round";
-  cx.beginPath();
-  cx.arc(0, 6, 3, 0.2*Math.PI, 0.8*Math.PI);
-  cx.stroke();
-
-  // 다리 (달리기 애니)
-  const legPhase = Math.floor(performance.now()/100) % 2;
-  cx.fillStyle = "#6b4220";
-  if (legPhase===0){
-    cx.fillRect(-9, 24, 6, 10);
-    cx.fillRect(5, 22, 6, 12);
-  } else {
-    cx.fillRect(-9, 22, 6, 12);
-    cx.fillRect(5, 24, 6, 10);
-  }
-
-  cx.restore();
-
-  // 플래시
-  if (flashState){
-    flashState.t += 1;
-    const sy = slotY(flashState.slot);
-    cx.save();
-    cx.globalAlpha = Math.max(0, 1 - flashState.t/30);
-    cx.fillStyle = flashState.miss ? "rgba(229,57,53,.4)" : "rgba(46,125,50,.4)";
-    cx.fillRect(0, sy - HOLE_H/2, W, HOLE_H);
-    cx.restore();
-    if (flashState.t > 30) flashState = null;
-  }
+  drawSprite(sprite, ox, oy);
 }
 
-// ===== 종료 / 업로드 =====
 function finishGame(){
   game.finished = true;
   const elapsed = (performance.now() - game.startTs)/1000;
@@ -542,8 +595,13 @@ function finishGame(){
   $("result").classList.remove("hidden");
   $("result-name").textContent = game.name + " 님";
   $("r-time").textContent = elapsed.toFixed(1) + "초";
-  $("r-penalty").textContent = (game.penaltyMs/1000).toFixed(1) + "초";
   $("r-count").textContent = game.answers.length + "개";
+
+  if (isDemo){
+    $("upload-status").className = "upload-status pending";
+    $("upload-status").textContent = "🔧 데모 모드 — 업로드 생략";
+    return;
+  }
 
   const payload = {
     programId: program.id,
@@ -553,11 +611,10 @@ function finishGame(){
     name: game.name,
     phone: game.phone,
     timeSec: +elapsed.toFixed(2),
-    penaltySec: +(game.penaltyMs/1000).toFixed(2),
+    penaltySec: 0,
     answers: game.answers,
     clientTs: Date.now()
   };
-
   uploadResponse(payload);
 }
 
@@ -586,9 +643,12 @@ $("replay-btn").addEventListener("click", () => {
   $("intro").classList.remove("hidden");
 });
 
-// 시작
+window.addEventListener("error", e => {
+  if (!game) return;
+  console.error("game error:", e.message);
+});
+
 loadProgram();
 </script>
-
 </body>
 </html>

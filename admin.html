@@ -79,7 +79,6 @@
     </div>
     <div id="pw-err" style="color:#c0392b;font-size:13px;margin-bottom:8px;display:none">비밀번호가 틀렸습니다.</div>
     <button id="login-btn" class="btn btn-primary" style="width:100%">로그인</button>
-    <div style="font-size:11px;color:#9a7a5a;margin-top:14px;text-align:center;line-height:1.5">기본 비밀번호: <code>hodoo2026</code><br>변경하려면 admin.html의 ADMIN_PW를 수정하세요</div>
   </div>
 </div>
 
@@ -399,16 +398,26 @@ async function saveProgram(){
   if (!qs.length){ showMErr("문항을 1개 이상 입력해주세요"); return; }
   const data = { name, date, surveyName, questions: qs, updatedAt: serverTimestamp() };
   try {
+    let newId = editingProg ? editingProg.id : null;
+    const wasNew = !editingProg;
     if (editingProg){
       await updateDoc(doc(db,"programs",editingProg.id), data);
       toast("저장되었습니다");
     } else {
       data.createdAt = serverTimestamp();
       const ref = await addDoc(collection(db,"programs"), data);
+      newId = ref.id;
       toast("새 프로그램이 생성되었습니다");
     }
     $("edit-modal").classList.remove("show");
     await loadPrograms();
+    if (wasNew && newId){
+      const p = programsCache.find(x => x.id === newId);
+      if (p) openDetail(p);
+    } else if (currentProg && currentProg.id === newId){
+      currentProg = programsCache.find(x => x.id === newId) || currentProg;
+      openDetail(currentProg);
+    }
   } catch(e){
     showMErr("저장 실패: "+e.message);
   }
