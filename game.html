@@ -85,9 +85,9 @@
     <div id="form-err" class="err"></div>
     <button id="start-btn" class="start-btn">시작하기</button>
     <div class="help">
-      탭 1번 = 점프 1번 (다시 바닥에 떨어집니다)<br>
-      공중에서 빠르게 더 누르면 더 높이 올라가요 (최대 5회)<br>
-      벽이 도착할 때 위치한 칸이 답으로 기록됩니다!
+      <b>1탭=매우만족 · 2탭=만족 · 3탭=보통 · 4탭=불만족 · 5탭=매우불만족</b><br>
+      공중에서 빠르게 연타할수록 위 칸으로 올라갑니다.<br>
+      탭하지 않으면 답이 안 됩니다 — 꼭 점프하세요!
     </div>
   </div>
 </div>
@@ -272,15 +272,14 @@ const HOLE_H = CHAR_H + 16;
 const WALL_W = 11 * PX;
 const SLOTS = 5;
 
-// ===== 점프 물리 =====
-const GRAVITY = 0.0025;        // px/ms²
-const JUMP_BASE = 0.85;        // 첫 탭 (지상 점프) 속도
-const JUMP_BOOST = 0.40;       // 공중 추가 탭당 부스트
-const VY_CAP = -1.70;          // 최대 상승 속도 (위로)
+// ===== 점프 물리 (결정론적: 탭 N번 = 슬롯 N) =====
+const GRAVITY = 0.0028;        // px/ms²
 const SPEED = 0.30;            // 벽 스크롤 속도 px/ms
 const FIRST_DIST = 720;        // 첫 벽까지 거리
-const WALL_DIST = 540;         // 이후 벽 간격
-let SLOT_HS = [0, 130, 270, 410, 550]; // 지면으로부터 슬롯별 높이
+const WALL_DIST = 560;         // 이후 벽 간격
+// 슬롯 1도 지면에서 떠 있어 — 점프해야 답이 됨
+let SLOT_HS = [70, 180, 290, 400, 510];
+const BASE_SLOT_HS = [70, 180, 290, 400, 510];
 
 const cv = $("canvas");
 const cx = cv.getContext("2d");
@@ -305,9 +304,9 @@ function resize(){
   const groundY = H - BOTTOM_MARGIN;
   const minTopY = TOP_MARGIN + CHAR_H + 6;
   const maxAbove = Math.max(200, groundY - minTopY);
-  const refMax = 580;
+  const refMax = 540;
   const scale = Math.min(1, maxAbove / refMax);
-  SLOT_HS = [0, 130*scale, 270*scale, 410*scale, 550*scale];
+  SLOT_HS = BASE_SLOT_HS.map(h => h * scale);
 }
 window.addEventListener("resize", () => { if (game) resize(); });
 
@@ -367,10 +366,12 @@ function initGame(name, phone){
     finished: false,
     runX: 0,
     walls: [],
+    penaltyMs: 0,
     player: { x: Math.max(70, W*0.18), feetY: groundY, vy: 0, onGround: true, tapCount: 0 },
     showHint: true,
     frame: 0
   };
+  dust = []; combos = []; texts = [];
   spawnNextWall(FIRST_DIST, 0);
   window.__game = game;
   $("q-text").textContent = game.questions[0].text || game.questions[0];
@@ -400,23 +401,127 @@ function jump(){
   if (!game || game.finished) return;
   if (game.showHint){ game.showHint = false; $("tap-hint").classList.add("hidden"); }
   const p = game.player;
-  if (p.onGround){
-    // 지상 점프
-    p.vy = -JUMP_BASE;
-    p.onGround = false;
-    p.tapCount = 1;
-  } else if (p.tapCount < 5){
-    // 공중 부스트
-    p.tapCount++;
-    p.vy = Math.max(VY_CAP, p.vy - JUMP_BOOST);
-  }
+  if (p.tapCount >= 5) return;
+  p.tapCount++;
+  // 탭 N번 → 슬롯 N 높이까지 정확히 도달하는 속도 부여
+  const groundY = H - BOTTOM_MARGIN;
+  const targetH = SLOT_HS[p.tapCount - 1];
+  const currentH = Math.max(0, groundY - p.feetY);
+  const deltaH = Math.max(20, targetH - currentH);
+  p.vy = -Math.sqrt(2 * GRAVITY * deltaH);
+  p.onGround = false;
+  // 효과
+  spawnDust(p.x, groundY);
+  spawnCombo(p.x, p.feetY - CHAR_H + 4, p.tapCount);
 }
 function updateSlotIndicator(){
   if (!game) return;
-  const s = computeSlotFromFeet(game.player.feetY);
-  $("slot-indicator").textContent = s + ". " + SLOT_LABELS[s-1];
-  $("slot-indicator").style.borderColor = SLOT_COLORS[s-1];
-  $("slot-indicator").style.color = SLOT_COLORS[s-1];
+  const tc = game.player.tapCount;
+  if (tc === 0){
+    $("slot-indicator").textContent = "탭하세요!";
+    $("slot-indicator").style.borderColor = "#1a1a1a";
+    $("slot-indicator").style.color = "#1a1a1a";
+  } else {
+    const s = Math.min(5, tc);
+    $("slot-indicator").textContent = s + ". " + SLOT_LABELS[s-1];
+    $("slot-indicator").style.borderColor = SLOT_COLORS[s-1];
+    $("slot-indicator").style.color = SLOT_COLORS[s-1];
+  }
+}
+
+// ===== 파티클 시스템 =====
+let dust = [], combos = [], texts = [];
+function spawnDust(x, baseY){
+  for (let i=0; i<6; i++){
+    dust.push({
+      x: x + (Math.random()-0.5)*CHAR_W*0.7,
+      y: baseY - 2,
+      vx: (Math.random()-0.5)*0.18,
+      vy: -Math.random()*0.14 - 0.04,
+      life: 0,
+      max: 350 + Math.random()*200
+    });
+  }
+}
+function spawnCombo(x, y, n){
+  combos.push({ x, y, n, life: 0, max: 600 });
+}
+function spawnText(x, y, msg, color){
+  texts.push({ x, y, msg, color, life: 0, max: 850 });
+}
+function updateParticles(dt){
+  for (let i=dust.length-1; i>=0; i--){
+    const d = dust[i];
+    d.life += dt;
+    if (d.life > d.max){ dust.splice(i,1); continue; }
+    d.x += d.vx*dt;
+    d.y += d.vy*dt;
+    d.vy += 0.0004*dt;
+  }
+  for (let i=combos.length-1; i>=0; i--){
+    const c = combos[i];
+    c.life += dt;
+    if (c.life > c.max){ combos.splice(i,1); continue; }
+    c.y -= 0.045*dt;
+  }
+  for (let i=texts.length-1; i>=0; i--){
+    const t = texts[i];
+    t.life += dt;
+    if (t.life > t.max){ texts.splice(i,1); continue; }
+    t.y -= 0.04*dt;
+  }
+}
+function drawParticles(){
+  for (const d of dust){
+    const alpha = 1 - (d.life/d.max);
+    cx.fillStyle = `rgba(160,128,80,${alpha*0.85})`;
+    pxRect(Math.round(d.x), Math.round(d.y), PX, PX);
+  }
+  for (const c of combos){
+    const alpha = 1 - (c.life/c.max);
+    const grow = Math.min(1, c.life/120);
+    const size = 16 + 10*grow;
+    cx.save();
+    cx.globalAlpha = alpha;
+    cx.font = `900 ${Math.round(size)}px monospace`;
+    cx.textAlign = "center";
+    cx.textBaseline = "middle";
+    cx.lineWidth = 5;
+    cx.strokeStyle = "#fff";
+    cx.fillStyle = SLOT_COLORS[Math.min(c.n-1,4)];
+    cx.strokeText("x"+c.n, c.x, c.y);
+    cx.fillText("x"+c.n, c.x, c.y);
+    cx.restore();
+  }
+  for (const t of texts){
+    const alpha = 1 - (t.life/t.max);
+    const grow = Math.min(1, t.life/100);
+    const size = 18 + 6*grow;
+    cx.save();
+    cx.globalAlpha = alpha;
+    cx.font = `900 ${Math.round(size)}px sans-serif`;
+    cx.textAlign = "center";
+    cx.textBaseline = "middle";
+    cx.lineWidth = 5;
+    cx.strokeStyle = "#fff";
+    cx.fillStyle = t.color;
+    cx.strokeText(t.msg, t.x, t.y);
+    cx.fillText(t.msg, t.x, t.y);
+    cx.restore();
+  }
+}
+
+function drawGrass(){
+  const groundY = H - BOTTOM_MARGIN;
+  for (let i=0; i<14; i++){
+    const xb = ((i*95 - game.runX*0.6) % (W+90) + (W+90)) % (W+90) - 45;
+    cx.fillStyle = "#86b25c";
+    pxRect(xb, groundY - PX*2, PX*2, PX);
+    pxRect(xb+PX*2, groundY - PX*3, PX, PX*2);
+    pxRect(xb+PX*3, groundY - PX*2, PX*2, PX);
+    cx.fillStyle = "#638b3f";
+    pxRect(xb+PX*2, groundY - PX*3, PX, PX);
+  }
 }
 cv.addEventListener("touchstart", e => { e.preventDefault(); jump(); }, {passive:false});
 cv.addEventListener("mousedown", jump);
@@ -434,6 +539,7 @@ function loop(t){
 
   drawClouds();
   drawGround();
+  drawGrass();
   drawSlotGuide();
 
   const moveX = SPEED * dt;
@@ -463,9 +569,23 @@ function loop(t){
     drawWall(w);
     if (!w.passed && w.x + WALL_W*0.5 <= p.x){
       w.passed = true;
-      const slot = computeSlotFromFeet(p.feetY);
+      // 탭 횟수가 곧 답 (1탭=슬롯1, 5탭=슬롯5)
+      let slot, missed = false;
+      if (p.tapCount === 0){
+        slot = 1;
+        missed = true;
+        game.penaltyMs = (game.penaltyMs||0) + 1500;
+      } else {
+        slot = Math.min(5, p.tapCount);
+      }
       game.answers.push({ q: game.questions[w.qIdx].text || game.questions[w.qIdx], a: slot, label: SLOT_LABELS[slot-1] });
       flashHole(slot);
+      if (missed){
+        spawnText(p.x, p.feetY - CHAR_H - 12, "탭 안 함!", "#e53935");
+      } else {
+        const labels = ["GOOD!","NICE!","GREAT!","SUPER!","AMAZING!"];
+        spawnText(p.x, p.feetY - CHAR_H - 12, labels[slot-1], SLOT_COLORS[slot-1]);
+      }
       game.qIdx++;
       if (game.qIdx < game.questions.length){
         $("q-text").textContent = game.questions[game.qIdx].text || game.questions[game.qIdx];
@@ -481,10 +601,13 @@ function loop(t){
 
   drawPlayer();
   drawFlash();
+  updateParticles(dt);
+  drawParticles();
 
-  // HUD
+  // HUD (페널티 시간을 함께 표시)
   const elapsed = (performance.now() - game.startTs)/1000;
-  $("timer").textContent = elapsed.toFixed(1);
+  const penSec = (game.penaltyMs||0)/1000;
+  $("timer").textContent = elapsed.toFixed(1) + (penSec>0 ? " (+"+penSec.toFixed(1)+")" : "");
 
   if (!game.finished) scheduleFrame();
 }
@@ -659,10 +782,11 @@ function drawPlayer(){
 function finishGame(){
   game.finished = true;
   const elapsed = (performance.now() - game.startTs)/1000;
+  const penSec = (game.penaltyMs||0)/1000;
   $("game").classList.add("hidden");
   $("result").classList.remove("hidden");
   $("result-name").textContent = game.name + " 님";
-  $("r-time").textContent = elapsed.toFixed(1) + "초";
+  $("r-time").textContent = (elapsed + penSec).toFixed(1) + "초" + (penSec>0 ? " (페널티 +"+penSec.toFixed(1)+"초)" : "");
   $("r-count").textContent = game.answers.length + "개";
 
   if (isDemo){
@@ -679,7 +803,7 @@ function finishGame(){
     name: game.name,
     phone: game.phone,
     timeSec: +elapsed.toFixed(2),
-    penaltySec: 0,
+    penaltySec: +((game.penaltyMs||0)/1000).toFixed(2),
     answers: game.answers,
     clientTs: Date.now()
   };
