@@ -47,8 +47,10 @@
 
   /* Game */
   #game{background:#fbf3dc;padding:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;height:100vh;height:100dvh}
-  #top-bar{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;padding:calc(env(safe-area-inset-top,0) + 8px) 14px 8px;background:#fff;border-bottom:3px solid #7d5a3c;font-family:monospace;font-weight:700;color:#5a3a1c;font-size:13px;z-index:5}
-  #top-bar .pill-stat{padding:5px 11px;border-radius:6px;background:#fff7e0;border:2px solid #d9b88a}
+  #top-bar{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;gap:6px;padding:calc(env(safe-area-inset-top,0) + 8px) 12px 8px;background:#fff;border-bottom:3px solid #7d5a3c;font-family:monospace;font-weight:700;color:#5a3a1c;font-size:12px;z-index:5}
+  #top-bar .pill-stat{padding:5px 9px;border-radius:6px;background:#fff7e0;border:2px solid #d9b88a;white-space:nowrap}
+  #top-bar #score-pill{background:#fff4d0;border-color:#e0b860;color:#7a5410}
+  #top-bar #total-score{font-size:14px;color:#c9881d;font-weight:900}
   #canvas-wrap{flex:1 1 auto;position:relative;overflow:hidden;background:#fbf3dc;min-height:200px}
   #canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;image-rendering:pixelated;image-rendering:crisp-edges}
   #slot-indicator{position:absolute;top:14px;right:12px;background:#fff;padding:6px 12px;font-size:13px;font-weight:800;font-family:-apple-system,BlinkMacSystemFont,sans-serif;z-index:6;pointer-events:none;border:3px solid #000;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.18);transition:color .12s,border-color .12s}
@@ -64,6 +66,11 @@
   #result{background:linear-gradient(180deg,#fff2d9 0%,#ffd7a3 100%);overflow-y:auto}
   .result-stat{display:flex;justify-content:space-between;padding:10px 14px;background:#fef6e7;border-radius:10px;margin-bottom:8px;font-size:15px}
   .result-stat strong{color:#7d5a3c}
+  .score-board{background:linear-gradient(135deg,#fff7d0,#ffd97a);border:3px solid #d9a040;border-radius:14px;padding:16px;text-align:center;margin-bottom:12px}
+  .score-board .score-label{font-size:12px;color:#7a5410;font-weight:700;letter-spacing:1px}
+  .score-board .score-value{font-size:34px;font-weight:900;color:#c9881d;line-height:1;margin:6px 0;font-family:monospace}
+  .score-board .score-max{font-size:16px;color:#a06d3c;font-weight:700}
+  .score-board .score-grade{font-size:14px;font-weight:800;margin-top:4px;letter-spacing:.5px}
   .upload-status{margin-top:14px;padding:10px 14px;border-radius:10px;font-size:14px;text-align:center;font-weight:600}
   .upload-status.ok{background:#e6f4ea;color:#2e7d32}
   .upload-status.fail{background:#fdecea;color:#c0392b}
@@ -99,11 +106,11 @@
     <div class="field">
       <label>교급</label>
       <div class="pill-row" id="school-row">
-        <label class="pill"><input type="radio" name="school" value="유아"><span>유아</span></label>
         <label class="pill"><input type="radio" name="school" value="초"><span>초등</span></label>
         <label class="pill"><input type="radio" name="school" value="중"><span>중등</span></label>
         <label class="pill"><input type="radio" name="school" value="고"><span>고등</span></label>
         <label class="pill"><input type="radio" name="school" value="대학"><span>대학</span></label>
+        <label class="pill"><input type="radio" name="school" value="유아"><span>유아</span></label>
         <label class="pill"><input type="radio" name="school" value="일반"><span>일반</span></label>
       </div>
     </div>
@@ -124,6 +131,7 @@
 <div id="game" class="screen hidden">
   <div id="top-bar">
     <span class="pill-stat">⏱ <span id="timer">0.0</span>s</span>
+    <span class="pill-stat" id="score-pill">🏆 <b id="total-score">0</b>점</span>
     <span class="pill-stat">Q <span id="q-progress">1/1</span></span>
   </div>
   <div id="canvas-wrap">
@@ -141,6 +149,11 @@
   <div class="card">
     <div class="title">🎉 완주!</div>
     <div class="subtitle" id="result-name"></div>
+    <div class="score-board">
+      <div class="score-label">획득 점수</div>
+      <div class="score-value"><span id="r-score">0</span><span class="score-max"> / <span id="r-score-max">0</span>점</span></div>
+      <div class="score-grade" id="r-grade"></div>
+    </div>
     <div class="result-stat"><span>완주 시간</span><strong id="r-time">0.0초</strong></div>
     <div class="result-stat"><span>응답 수</span><strong id="r-count">0개</strong></div>
     <div id="upload-status" class="upload-status pending">업로드 중...</div>
@@ -415,13 +428,16 @@ function initGame(user){
     finished: false,
     runX: 0,
     walls: [],
+    obstacles: [],
     penaltyMs: 0,
+    stunUntil: 0,
+    totalScore: 0,
     player: { x: Math.max(70, W*0.18), feetY: groundY, vy: 0, phase: 'ground', tapCount: 0 },
     showHint: true,
     frame: 0
   };
   dust = []; combos = []; texts = [];
-  spawnNextWall(FIRST_DIST, 0);
+  spawnNextWall(FIRST_DIST, 0, false); // 첫 벽은 적응용 — 장애물 없음
   window.__game = game;
   $("q-text").textContent = game.questions[0].text || game.questions[0];
   $("q-counter").textContent = "QUESTION 1";
@@ -438,16 +454,55 @@ function scheduleFrame(){
   else requestAnimationFrame(loop);
 }
 
-function spawnNextWall(distance, qIdx){
+function spawnNextWall(distance, qIdx, includeObstacle = true){
   game.walls.push({
     x: W + distance,
     passed: false,
     qIdx: qIdx
   });
+  // 벽 사이에 작은 장애물 1개 (60% 확률) — 시간 차이를 만드는 게임 요소
+  if (includeObstacle && Math.random() < 0.65){
+    const offset = distance * (0.4 + Math.random() * 0.3);
+    game.obstacles.push({
+      x: W + offset,
+      type: Math.random() < 0.5 ? 'cone' : 'rock',
+      passed: false
+    });
+  }
+}
+
+function drawObstacle(o){
+  const groundY = H - BOTTOM_MARGIN;
+  if (o.x < -40 || o.x > W + 40) return;
+  if (o.type === 'cone'){
+    // 안전콘 (작은 빨간 삼각형)
+    cx.fillStyle = "#e74c3c";
+    pxRect(o.x - PX/2, groundY - 6*PX, PX, PX);
+    pxRect(o.x - 1.5*PX, groundY - 5*PX, 3*PX, PX);
+    pxRect(o.x - 2.5*PX, groundY - 4*PX, 5*PX, PX);
+    cx.fillStyle = "#fff";
+    pxRect(o.x - 2.5*PX, groundY - 3*PX, 5*PX, PX);
+    cx.fillStyle = "#e74c3c";
+    pxRect(o.x - 3*PX, groundY - 2*PX, 6*PX, PX);
+    cx.fillStyle = "#1a1a1a";
+    pxRect(o.x - 4*PX, groundY - PX, 8*PX, PX);
+  } else {
+    // 작은 바위
+    cx.fillStyle = "#7d6a55";
+    pxRect(o.x - 4*PX, groundY - 4*PX, 8*PX, 3*PX);
+    pxRect(o.x - 3*PX, groundY - 5*PX, 6*PX, PX);
+    cx.fillStyle = "#5a4838";
+    pxRect(o.x + 2*PX, groundY - 3*PX, PX, PX);
+    pxRect(o.x - 3*PX, groundY - 2*PX, PX, PX);
+    cx.fillStyle = "#a89378";
+    pxRect(o.x - 2*PX, groundY - 4*PX, PX, PX);
+  }
 }
 
 function jump(){
   if (!game || game.finished) return;
+  // 스턴 중에는 점프 불가
+  if ((game.stunUntil||0) > performance.now()) return;
   if (game.showHint){ game.showHint = false; $("tap-hint").classList.add("hidden"); }
   const p = game.player;
   // 다음 벽을 위한 새 점프 (착지 중에 다시 탭 가능)
@@ -595,8 +650,29 @@ function loop(t){
   drawGrass();
   drawSlotGuide();
 
-  const moveX = SPEED * dt;
-  game.runX += moveX;
+  // 스턴 (장애물 충돌 시): 화면 흔들림 + 스크롤 멈춤
+  const now = performance.now();
+  const stunned = (game.stunUntil||0) > now;
+  const moveX = stunned ? 0 : SPEED * dt;
+  if (!stunned) game.runX += moveX;
+
+  // 장애물 업데이트 + 충돌 검사 + 그리기
+  for (const o of (game.obstacles||[])){
+    o.x -= moveX;
+    drawObstacle(o);
+    if (!o.passed && Math.abs(o.x - game.player.x) < CHAR_W*0.42){
+      if (game.player.phase === 'ground'){
+        // 충돌!
+        o.passed = true;
+        game.stunUntil = now + 600;
+        game.penaltyMs = (game.penaltyMs||0) + 600;
+        spawnText(game.player.x, game.player.feetY - CHAR_H - 8, "충돌!", "#e53935");
+      } else if (o.x + 12 < game.player.x){
+        o.passed = true; // 점프로 통과 성공
+      }
+    }
+  }
+  game.obstacles = (game.obstacles||[]).filter(o => o.x > -50);
 
   // 플레이어 phase 기반 업데이트 (엘리베이터 모델)
   const p = game.player;
@@ -642,12 +718,15 @@ function loop(t){
         slot: slot,
         label: SLOT_LABELS[slot-1]
       });
+      // 획득 점수 누적 (5점=매우만족이 가장 높음 → 매우만족 응답을 자연스럽게 유도)
+      game.totalScore += score;
+      $("total-score").textContent = game.totalScore;
       flashHole(slot);
       if (missed){
-        spawnText(p.x, p.feetY - CHAR_H - 12, "탭 안 함!", "#e53935");
+        spawnText(p.x, p.feetY - CHAR_H - 12, "탭 안 함! +1점", "#e53935");
       } else {
-        // 응답 라벨을 그대로 보여줘 — "잘했어요" 류 칭찬은 무성의 응답을 유발하므로 사용 X
-        spawnText(p.x, p.feetY - CHAR_H - 12, score + "점 " + SLOT_LABELS[slot-1], SLOT_COLORS[slot-1]);
+        // "+N점" 강조 + 라벨
+        spawnText(p.x, p.feetY - CHAR_H - 12, "+" + score + "점 " + SLOT_LABELS[slot-1], SLOT_COLORS[slot-1]);
       }
       // 벽 통과 후 자연 착지
       p.phase = 'descending';
@@ -822,7 +901,6 @@ function drawSlotGuide(){
 function drawPlayer(){
   game.frame++;
   const p = game.player;
-  // 지상에서는 달리기 다리, 공중에선 모으기
   const onGround = (p.phase === 'ground');
   let legs;
   if (onGround){
@@ -831,9 +909,12 @@ function drawPlayer(){
     legs = LEGS_A;
   }
   const bobOffset = onGround ? (Math.floor(game.frame/6) % 2 === 0 ? 0 : -PX) : 0;
+  // 스턴 중 좌우 흔들림
+  const stunned = (game.stunUntil||0) > performance.now();
+  const shakeX = stunned ? Math.sin(performance.now()/35) * 3 : 0;
   const sprite = SPRITE_BASE.concat(legs);
 
-  const ox = p.x - CHAR_W/2;
+  const ox = p.x - CHAR_W/2 + shakeX;
   const oy = p.feetY - CHAR_H + bobOffset;
 
   // 그림자 — 항상 지면에 (점프해도 지면에 고정)
@@ -854,6 +935,19 @@ function finishGame(){
   $("game").classList.add("hidden");
   $("result").classList.remove("hidden");
   $("result-name").textContent = game.name + " 님";
+  // 획득 점수 + 등급
+  const total = game.totalScore || 0;
+  const max = game.questions.length * 5;
+  $("r-score").textContent = total;
+  $("r-score-max").textContent = max;
+  const ratio = max > 0 ? total/max : 0;
+  let grade, gradeColor;
+  if (ratio >= 0.9){ grade = "🏆 최고예요!"; gradeColor = "#2e7d32"; }
+  else if (ratio >= 0.7){ grade = "👍 좋아요!"; gradeColor = "#7cb342"; }
+  else if (ratio >= 0.5){ grade = "🙂 보통이에요"; gradeColor = "#fbc02d"; }
+  else { grade = "💪 다음엔 더 잘!"; gradeColor = "#fb8c00"; }
+  $("r-grade").textContent = grade;
+  $("r-grade").style.color = gradeColor;
   $("r-time").textContent = (elapsed + penSec).toFixed(1) + "초" + (penSec>0 ? " (페널티 +"+penSec.toFixed(1)+"초)" : "");
   $("r-count").textContent = game.answers.length + "개";
 
@@ -874,6 +968,8 @@ function finishGame(){
     school: game.school || "",
     timeSec: +elapsed.toFixed(2),
     penaltySec: +((game.penaltyMs||0)/1000).toFixed(2),
+    totalScore: game.totalScore || 0,
+    maxScore: (game.questions.length||0) * 5,
     answers: game.answers,
     clientTs: Date.now()
   };

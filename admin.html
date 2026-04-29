@@ -599,14 +599,20 @@ function renderResponses(){
   }).join("");
   $("q-summary").innerHTML = sumHtml;
 
-  // 응답 테이블 (성별·교급 컬럼 추가)
+  // 응답 테이블 (성별·교급·총점 컬럼 추가)
   const head = $("resp-head");
-  head.innerHTML = "<th>응답시각</th><th>닉네임</th><th>성별</th><th>교급</th><th>전화뒷4</th><th>시간</th><th>패널티</th>" +
+  head.innerHTML = "<th>응답시각</th><th>닉네임</th><th>성별</th><th>교급</th><th>전화뒷4</th><th>시간</th><th>페널티</th><th>총점</th>" +
     qs.map((q,i)=>`<th title="${escapeHtml(q.text||q)}">Q${i+1}</th>`).join("");
   const tb = $("resp-tbody");
   tb.innerHTML = "";
   for (const r of respCache){
     const tr = document.createElement("tr");
+    // 총점 — 신규 데이터엔 totalScore, 구 데이터는 답변에서 계산
+    let total = r.totalScore;
+    if (total == null){
+      total = (r.answers||[]).reduce((s,a)=>s+(ansScore(a)||0),0);
+    }
+    const max = r.maxScore || ((qs.length)*5);
     let tds = `
       <td>${fmtTs(r.ts || r.clientTs)}</td>
       <td><strong>${escapeHtml(r.name||"")}</strong></td>
@@ -615,6 +621,7 @@ function renderResponses(){
       <td>${escapeHtml(r.phone||"")}</td>
       <td>${(r.timeSec||0).toFixed(1)}s</td>
       <td>${(r.penaltySec||0).toFixed(1)}s</td>
+      <td><strong style="color:#c9881d">${total}/${max}</strong></td>
     `;
     for (let i=0;i<qs.length;i++){
       const a = (r.answers||[])[i];
@@ -639,6 +646,11 @@ $("excel-btn").addEventListener("click", () => {
   if (!currentProg || !respCache.length){ toast("응답이 없습니다"); return; }
   const qs = currentProg.questions || [];
   const rows = respCache.map(r => {
+    let total = r.totalScore;
+    if (total == null){
+      total = (r.answers||[]).reduce((s,a)=>s+(ansScore(a)||0),0);
+    }
+    const max = r.maxScore || ((qs.length)*5);
     const row = {
       "응답시각": fmtTs(r.ts || r.clientTs),
       "조사명": r.surveyName || currentProg.surveyName || "",
@@ -648,6 +660,8 @@ $("excel-btn").addEventListener("click", () => {
       "성별": r.gender || "",
       "교급": r.school || "",
       "전화뒷4": r.phone || "",
+      "총점": total,
+      "만점": max,
       "완주시간(초)": r.timeSec || 0,
       "패널티(초)": r.penaltySec || 0
     };
