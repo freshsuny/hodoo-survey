@@ -9,6 +9,7 @@
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
   html,body{height:100%;overflow:hidden;background:#fbf3dc;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#333;image-rendering:pixelated}
+  body{height:100vh;height:100dvh}
   button{border:none;cursor:pointer;font-family:inherit}
   input{font-family:inherit;font-size:16px}
   .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
@@ -30,6 +31,12 @@
   .field label{display:block;font-size:13px;font-weight:600;color:#7d5a3c;margin-bottom:6px}
   .field input{width:100%;padding:12px 14px;border:2px solid #e8d4b6;border-radius:10px;font-size:16px;outline:none;background:#fffaf0}
   .field input:focus{border-color:#c89b6a}
+  .field label .hint{font-weight:400;font-size:11px;color:#c0392b;margin-left:6px}
+  .pill-row{display:flex;flex-wrap:wrap;gap:6px}
+  .pill{cursor:pointer}
+  .pill input{display:none}
+  .pill span{display:inline-block;padding:8px 14px;border:2px solid #e8d4b6;border-radius:20px;background:#fffaf0;font-size:14px;font-weight:600;color:#7d5a3c;transition:all .12s}
+  .pill input:checked + span{background:linear-gradient(135deg,#d9a06b,#7d5a3c);color:#fff;border-color:#7d5a3c;box-shadow:0 2px 6px rgba(125,90,60,.25)}
   .start-btn{width:100%;padding:14px;background:linear-gradient(135deg,#d9a06b,#7d5a3c);color:#fff;font-size:17px;font-weight:700;border-radius:12px;margin-top:8px;box-shadow:0 4px 12px rgba(125,90,60,.3)}
   .start-btn:active{transform:translateY(1px)}
   .help{font-size:12px;color:#9a7a5a;margin-top:14px;line-height:1.5;text-align:center}
@@ -39,15 +46,19 @@
   .net-badge.offline{color:#c0392b}
 
   /* Game */
-  #game{background:#fbf3dc;padding:0}
-  #q-box{position:absolute;top:0;left:0;right:0;background:#fff;border-bottom:3px solid #7d5a3c;padding:14px 16px 12px;z-index:5}
-  #q-counter{font-size:11px;font-weight:700;color:#a06d3c;letter-spacing:1px}
-  #q-text{font-size:18px;font-weight:800;color:#3a2814;line-height:1.35;margin-top:4px;word-break:keep-all}
-  #hud{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;padding:10px 16px;background:#fff;border-top:3px solid #7d5a3c;font-size:13px;color:#5a3a1c;font-weight:700;z-index:5}
+  #game{background:#fbf3dc;padding:0;display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;height:100vh;height:100dvh}
+  #top-bar{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;padding:calc(env(safe-area-inset-top,0) + 8px) 14px 8px;background:#fff;border-bottom:3px solid #7d5a3c;font-family:monospace;font-weight:700;color:#5a3a1c;font-size:13px;z-index:5}
+  #top-bar .pill-stat{padding:5px 11px;border-radius:6px;background:#fff7e0;border:2px solid #d9b88a}
+  #canvas-wrap{flex:1 1 auto;position:relative;overflow:hidden;background:#fbf3dc;min-height:200px}
+  #canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;image-rendering:pixelated;image-rendering:crisp-edges}
+  #slot-indicator{position:absolute;top:14px;right:12px;background:#fff;padding:6px 12px;font-size:13px;font-weight:800;font-family:-apple-system,BlinkMacSystemFont,sans-serif;z-index:6;pointer-events:none;border:3px solid #000;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.18);transition:color .12s,border-color .12s}
   #tap-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.7);color:#fff;padding:14px 22px;border-radius:0;font-size:15px;font-weight:700;pointer-events:none;animation:pulse 1s infinite alternate;z-index:6;letter-spacing:1px;border:3px solid #fff;font-family:monospace}
   @keyframes pulse{from{transform:translate(-50%,-50%) scale(1)}to{transform:translate(-50%,-50%) scale(1.06)}}
-  #canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;image-rendering:pixelated;image-rendering:crisp-edges}
-  #slot-indicator{position:absolute;top:88px;right:12px;background:#fff;padding:6px 12px;font-size:13px;font-weight:800;font-family:-apple-system,BlinkMacSystemFont,sans-serif;z-index:6;pointer-events:none;border:3px solid #000;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.18);transition:color .12s,border-color .12s}
+  #q-box{flex:0 0 auto;background:#fff;border-top:4px double #7d5a3c;padding:16px 22px calc(20px + env(safe-area-inset-bottom,0));z-index:5;min-height:108px;position:relative;box-shadow:inset 0 4px 0 rgba(0,0,0,.04)}
+  #q-counter{font-size:11px;font-weight:800;color:#a06d3c;letter-spacing:1.5px;font-family:monospace}
+  #q-text{font-size:19px;font-weight:800;color:#3a2814;line-height:1.4;margin-top:6px;word-break:keep-all;letter-spacing:-.2px}
+  #q-box::after{content:'▼';position:absolute;right:20px;bottom:calc(10px + env(safe-area-inset-bottom,0));color:#7d5a3c;font-size:14px;animation:qbounce 1s infinite alternate}
+  @keyframes qbounce{from{transform:translateY(0)}to{transform:translateY(4px)}}
 
   /* Result */
   #result{background:linear-gradient(180deg,#fff2d9 0%,#ffd7a3 100%);overflow-y:auto}
@@ -75,8 +86,26 @@
     <div class="subtitle">만족도 조사 게임</div>
     <div id="program-info" class="program-info"></div>
     <div class="field">
-      <label for="nickname">닉네임</label>
-      <input id="nickname" type="text" maxlength="12" placeholder="이름 또는 별명">
+      <label for="nickname">닉네임 <span class="hint">실명 X · 별명/아이디만</span></label>
+      <input id="nickname" type="text" maxlength="12" placeholder="별명 또는 게임 이름">
+    </div>
+    <div class="field">
+      <label>성별</label>
+      <div class="pill-row" id="gender-row">
+        <label class="pill"><input type="radio" name="gender" value="남"><span>남자</span></label>
+        <label class="pill"><input type="radio" name="gender" value="여"><span>여자</span></label>
+      </div>
+    </div>
+    <div class="field">
+      <label>교급</label>
+      <div class="pill-row" id="school-row">
+        <label class="pill"><input type="radio" name="school" value="유아"><span>유아</span></label>
+        <label class="pill"><input type="radio" name="school" value="초"><span>초등</span></label>
+        <label class="pill"><input type="radio" name="school" value="중"><span>중등</span></label>
+        <label class="pill"><input type="radio" name="school" value="고"><span>고등</span></label>
+        <label class="pill"><input type="radio" name="school" value="대학"><span>대학</span></label>
+        <label class="pill"><input type="radio" name="school" value="일반"><span>일반</span></label>
+      </div>
     </div>
     <div class="field">
       <label for="phone">전화번호 뒷 4자리</label>
@@ -85,7 +114,7 @@
     <div id="form-err" class="err"></div>
     <button id="start-btn" class="start-btn">시작하기</button>
     <div class="help">
-      <b>1탭=매우만족 · 2탭=만족 · 3탭=보통 · 4탭=불만족 · 5탭=매우불만족</b><br>
+      <b>1탭=매우만족(5점) · 2탭=만족 · 3탭=보통 · 4탭=불만족 · 5탭=매우불만족(1점)</b><br>
       공중에서 빠르게 연타할수록 위 칸으로 올라갑니다.<br>
       탭하지 않으면 답이 안 됩니다 — 꼭 점프하세요!
     </div>
@@ -93,16 +122,18 @@
 </div>
 
 <div id="game" class="screen hidden">
+  <div id="top-bar">
+    <span class="pill-stat">⏱ <span id="timer">0.0</span>s</span>
+    <span class="pill-stat">Q <span id="q-progress">1/1</span></span>
+  </div>
+  <div id="canvas-wrap">
+    <canvas id="canvas"></canvas>
+    <div id="slot-indicator">탭하세요!</div>
+    <div id="tap-hint">▶ 탭해서 점프!</div>
+  </div>
   <div id="q-box">
     <div id="q-counter"></div>
     <div id="q-text"></div>
-  </div>
-  <canvas id="canvas"></canvas>
-  <div id="slot-indicator">SLOT 1</div>
-  <div id="tap-hint">▶ 탭해서 점프!</div>
-  <div id="hud">
-    <span>⏱ <span id="timer">0.0</span>s</span>
-    <span>Q <span id="q-progress">1/1</span></span>
   </div>
 </div>
 
@@ -207,17 +238,30 @@ function showIntro(){
     + (program.surveyName ? '<div style="margin-top:4px;font-size:12px">'+escapeHtml(program.surveyName)+'</div>' : '');
   const saved = JSON.parse(sessionStorage.getItem("hodoo_user")||"{}");
   if (saved.name) $("nickname").value = saved.name;
+  if (saved.gender){
+    const r = document.querySelector('input[name="gender"][value="'+saved.gender+'"]');
+    if (r) r.checked = true;
+  }
+  if (saved.school){
+    const r = document.querySelector('input[name="school"][value="'+saved.school+'"]');
+    if (r) r.checked = true;
+  }
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
 $("start-btn").addEventListener("click", () => {
   const name = $("nickname").value.trim();
   const phone = $("phone").value.trim();
+  const gender = (document.querySelector('input[name="gender"]:checked')||{}).value || "";
+  const school = (document.querySelector('input[name="school"]:checked')||{}).value || "";
   if (!name){ $("form-err").textContent = "닉네임을 입력해주세요."; return; }
+  if (name.length < 2){ $("form-err").textContent = "닉네임은 2자 이상 입력해주세요."; return; }
+  if (!gender){ $("form-err").textContent = "성별을 선택해주세요."; return; }
+  if (!school){ $("form-err").textContent = "교급을 선택해주세요."; return; }
   if (!/^\d{4}$/.test(phone)){ $("form-err").textContent = "전화번호 뒷 4자리를 입력해주세요."; return; }
   $("form-err").textContent = "";
-  sessionStorage.setItem("hodoo_user", JSON.stringify({name,phone}));
-  startGame(name, phone);
+  sessionStorage.setItem("hodoo_user", JSON.stringify({name,phone,gender,school}));
+  startGame({name, phone, gender, school});
 });
 
 // ===== 픽셀 아트 캐릭터 (귀여운 호두) =====
@@ -287,23 +331,25 @@ let W=0, H=0, DPR=1, TOP_MARGIN=100, BOTTOM_MARGIN=70;
 
 function resize(){
   DPR = Math.min(window.devicePixelRatio||1, 2);
-  W = window.innerWidth;
-  H = window.innerHeight;
+  // 캔버스 컨테이너(상하 바 제외) 크기 측정
+  const wrap = $("canvas-wrap");
+  const rect = wrap.getBoundingClientRect();
+  W = Math.round(rect.width);
+  H = Math.round(rect.height);
+  if (H < 200) H = 200;
   cv.width = Math.round(W*DPR);
   cv.height = Math.round(H*DPR);
   cv.style.width = W + "px";
   cv.style.height = H + "px";
   cx.setTransform(DPR,0,0,DPR,0,0);
   cx.imageSmoothingEnabled = false;
-  // q-box / hud 높이 측정해서 마진 보정
-  const qb = $("q-box").getBoundingClientRect().height || 70;
-  const hu = $("hud").getBoundingClientRect().height || 40;
-  TOP_MARGIN = qb + 18;
-  BOTTOM_MARGIN = hu + 26;
+  // 캔버스 내부 여백 (구름/지면)
+  TOP_MARGIN = 24;
+  BOTTOM_MARGIN = 36;
   // 화면 높이에 맞게 슬롯 높이 스케일링
   const groundY = H - BOTTOM_MARGIN;
   const minTopY = TOP_MARGIN + CHAR_H + 6;
-  const maxAbove = Math.max(200, groundY - minTopY);
+  const maxAbove = Math.max(160, groundY - minTopY);
   const refMax = 540;
   const scale = Math.min(1, maxAbove / refMax);
   SLOT_HS = BASE_SLOT_HS.map(h => h * scale);
@@ -346,19 +392,22 @@ function drawSprite(rows, ox, oy){
 
 let game = null;
 
-function startGame(name, phone){
+function startGame(user){
   $("intro").classList.add("hidden");
   $("game").classList.remove("hidden");
   // 레이아웃 강제 후 동기적으로 사이즈 측정/초기화 (hidden 탭에서도 동작)
   void $("game").offsetHeight;
   resize();
-  initGame(name, phone);
+  initGame(user);
 }
 
-function initGame(name, phone){
+function initGame(user){
   const groundY = H - BOTTOM_MARGIN;
   game = {
-    name, phone,
+    name: user.name,
+    phone: user.phone,
+    gender: user.gender || "",
+    school: user.school || "",
     questions: program.questions,
     qIdx: 0,
     answers: [],
@@ -367,7 +416,7 @@ function initGame(name, phone){
     runX: 0,
     walls: [],
     penaltyMs: 0,
-    player: { x: Math.max(70, W*0.18), feetY: groundY, vy: 0, onGround: true, tapCount: 0 },
+    player: { x: Math.max(70, W*0.18), feetY: groundY, vy: 0, phase: 'ground', tapCount: 0 },
     showHint: true,
     frame: 0
   };
@@ -401,17 +450,20 @@ function jump(){
   if (!game || game.finished) return;
   if (game.showHint){ game.showHint = false; $("tap-hint").classList.add("hidden"); }
   const p = game.player;
+  // 다음 벽을 위한 새 점프 (착지 중에 다시 탭 가능)
+  if (p.phase === 'descending'){
+    p.tapCount = 1;
+    p.phase = 'jumping';
+    p.vy = 0;
+    spawnDust(p.x, H - BOTTOM_MARGIN);
+    spawnCombo(p.x, p.feetY - CHAR_H + 4, 1);
+    return;
+  }
   if (p.tapCount >= 5) return;
+  const wasOnGround = (p.phase === 'ground');
   p.tapCount++;
-  // 탭 N번 → 슬롯 N 높이까지 정확히 도달하는 속도 부여
-  const groundY = H - BOTTOM_MARGIN;
-  const targetH = SLOT_HS[p.tapCount - 1];
-  const currentH = Math.max(0, groundY - p.feetY);
-  const deltaH = Math.max(20, targetH - currentH);
-  p.vy = -Math.sqrt(2 * GRAVITY * deltaH);
-  p.onGround = false;
-  // 효과
-  spawnDust(p.x, groundY);
+  p.phase = 'jumping';
+  if (wasOnGround) spawnDust(p.x, H - BOTTOM_MARGIN);
   spawnCombo(p.x, p.feetY - CHAR_H + 4, p.tapCount);
 }
 function updateSlotIndicator(){
@@ -423,7 +475,8 @@ function updateSlotIndicator(){
     $("slot-indicator").style.color = "#1a1a1a";
   } else {
     const s = Math.min(5, tc);
-    $("slot-indicator").textContent = s + ". " + SLOT_LABELS[s-1];
+    const score = 6 - s;
+    $("slot-indicator").textContent = score + "점·" + SLOT_LABELS[s-1];
     $("slot-indicator").style.borderColor = SLOT_COLORS[s-1];
     $("slot-indicator").style.color = SLOT_COLORS[s-1];
   }
@@ -545,22 +598,26 @@ function loop(t){
   const moveX = SPEED * dt;
   game.runX += moveX;
 
-  // 플레이어 물리 업데이트
+  // 플레이어 phase 기반 업데이트 (엘리베이터 모델)
   const p = game.player;
   const groundY = H - BOTTOM_MARGIN;
-  const minFeetY = TOP_MARGIN + CHAR_H + 6;
-  if (!p.onGround){
-    p.vy += GRAVITY * dt;
+  if (p.phase === 'jumping'){
+    // 슬롯 N 높이로 부드럽게 보간
+    const targetFeetY = groundY - SLOT_HS[Math.max(1, p.tapCount) - 1];
+    const dy = targetFeetY - p.feetY;
+    p.feetY += dy * 0.22;
+    if (Math.abs(dy) < 0.5) p.feetY = targetFeetY;
+    p.vy = 0;
+  } else if (p.phase === 'descending'){
+    p.vy += GRAVITY * 1.4 * dt;
     p.feetY += p.vy * dt;
-    if (p.feetY < minFeetY){ p.feetY = minFeetY; if (p.vy < 0) p.vy = 0; }
     if (p.feetY >= groundY){
       p.feetY = groundY;
       p.vy = 0;
-      p.onGround = true;
+      p.phase = 'ground';
       p.tapCount = 0;
     }
   }
-  // 실시간 슬롯 표시
   updateSlotIndicator();
 
   // 벽 업데이트 + 충돌
@@ -569,7 +626,7 @@ function loop(t){
     drawWall(w);
     if (!w.passed && w.x + WALL_W*0.5 <= p.x){
       w.passed = true;
-      // 탭 횟수가 곧 답 (1탭=슬롯1, 5탭=슬롯5)
+      // 탭 횟수가 곧 슬롯 (1탭=슬롯1, 5탭=슬롯5). 점수는 반전: 슬롯1=5점, 슬롯5=1점
       let slot, missed = false;
       if (p.tapCount === 0){
         slot = 1;
@@ -578,14 +635,23 @@ function loop(t){
       } else {
         slot = Math.min(5, p.tapCount);
       }
-      game.answers.push({ q: game.questions[w.qIdx].text || game.questions[w.qIdx], a: slot, label: SLOT_LABELS[slot-1] });
+      const score = 6 - slot;
+      game.answers.push({
+        q: game.questions[w.qIdx].text || game.questions[w.qIdx],
+        a: score,
+        slot: slot,
+        label: SLOT_LABELS[slot-1]
+      });
       flashHole(slot);
       if (missed){
         spawnText(p.x, p.feetY - CHAR_H - 12, "탭 안 함!", "#e53935");
       } else {
-        const labels = ["GOOD!","NICE!","GREAT!","SUPER!","AMAZING!"];
-        spawnText(p.x, p.feetY - CHAR_H - 12, labels[slot-1], SLOT_COLORS[slot-1]);
+        // 응답 라벨을 그대로 보여줘 — "잘했어요" 류 칭찬은 무성의 응답을 유발하므로 사용 X
+        spawnText(p.x, p.feetY - CHAR_H - 12, score + "점 " + SLOT_LABELS[slot-1], SLOT_COLORS[slot-1]);
       }
+      // 벽 통과 후 자연 착지
+      p.phase = 'descending';
+      p.vy = -0.1;
       game.qIdx++;
       if (game.qIdx < game.questions.length){
         $("q-text").textContent = game.questions[game.qIdx].text || game.questions[game.qIdx];
@@ -707,19 +773,20 @@ function drawWall(w){
     }
   }
 
-  // 라벨
+  // 라벨 (점수·라벨, 슬롯 기반)
   if (wx < W + 30 && wx > -200){
-    cx.font = "700 12px monospace";
+    cx.font = "800 12px -apple-system,sans-serif";
     cx.textAlign = "left";
     cx.textBaseline = "middle";
     for (let s=1;s<=SLOTS;s++){
       const cy = slotCenterY(s);
-      const text = s + "." + SLOT_LABELS[s-1];
-      const tw = cx.measureText(text).width + 10;
-      cx.fillStyle = "rgba(255,255,255,.92)";
-      pxRect(wx + WALL_W + 6, cy - 10, tw, 20);
+      const score = 6 - s;
+      const text = score + "점 " + SLOT_LABELS[s-1];
+      const tw = cx.measureText(text).width + 12;
+      cx.fillStyle = "rgba(255,255,255,.94)";
+      pxRect(wx + WALL_W + 6, cy - 11, tw, 22);
       cx.fillStyle = SLOT_COLORS[s-1];
-      pxRect(wx + WALL_W + 6, cy - 10, PX, 20);
+      pxRect(wx + WALL_W + 6, cy - 11, PX, 22);
       cx.fillStyle = "#3a2814";
       cx.fillText(text, wx + WALL_W + 12, cy);
     }
@@ -755,14 +822,15 @@ function drawSlotGuide(){
 function drawPlayer(){
   game.frame++;
   const p = game.player;
-  // 공중일 때는 다리 모으기, 지상에서 달릴 때 다리 교차
+  // 지상에서는 달리기 다리, 공중에선 모으기
+  const onGround = (p.phase === 'ground');
   let legs;
-  if (p.onGround){
+  if (onGround){
     legs = Math.floor(game.frame/6) % 2 === 0 ? LEGS_A : LEGS_B;
   } else {
     legs = LEGS_A;
   }
-  const bobOffset = p.onGround ? (Math.floor(game.frame/6) % 2 === 0 ? 0 : -PX) : 0;
+  const bobOffset = onGround ? (Math.floor(game.frame/6) % 2 === 0 ? 0 : -PX) : 0;
   const sprite = SPRITE_BASE.concat(legs);
 
   const ox = p.x - CHAR_W/2;
@@ -802,6 +870,8 @@ function finishGame(){
     date: program.date || "",
     name: game.name,
     phone: game.phone,
+    gender: game.gender || "",
+    school: game.school || "",
     timeSec: +elapsed.toFixed(2),
     penaltySec: +((game.penaltyMs||0)/1000).toFixed(2),
     answers: game.answers,

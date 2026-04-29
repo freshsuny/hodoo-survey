@@ -229,8 +229,26 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const ADMIN_PW = "hodoo2026"; // 비밀번호 변경 시 이 줄만 수정
-const SLOT_LABELS = ["매우만족","만족","보통","불만족","매우불만족"];
+const SLOT_LABELS = ["매우만족","만족","보통","불만족","매우불만족"]; // 슬롯 1~5
 const SLOT_COLORS = ["#2e7d32","#7cb342","#fbc02d","#fb8c00","#e53935"];
+// 점수 1~5 (반전: 1=매우불만족, 5=매우만족)
+const SCORE_LABELS = ["매우불만족","불만족","보통","만족","매우만족"];
+const SCORE_COLORS = ["#e53935","#fb8c00","#fbc02d","#7cb342","#2e7d32"];
+
+// 응답 객체에서 점수(1~5, 5=매우만족) 추출 — 신/구 데이터 호환
+function ansScore(a){
+  if (!a || a.a == null) return null;
+  // 신규 데이터: a.slot 필드가 있으면 a.a는 이미 점수
+  if (typeof a.slot === 'number') return a.a;
+  // 구 데이터: a.a가 슬롯이므로 점수로 변환
+  return 6 - a.a;
+}
+function ansLabel(a){
+  if (!a) return "";
+  if (a.label) return a.label;
+  const s = ansScore(a);
+  return s ? SCORE_LABELS[s-1] : "";
+}
 const GAME_BASE = location.href.replace(/admin\.html.*/, "game.html");
 
 const $ = id => document.getElementById(id);
@@ -541,31 +559,37 @@ function renderResponses(){
   $("s-time").textContent = avgT.toFixed(1)+"초";
   $("s-pen").textContent = avgP.toFixed(1)+"초";
 
-  // 문항별 평균
+  // 문항별 평균 (점수: 1=매우불만족, 5=매우만족)
   const qs = currentProg.questions || [];
   const sums = qs.map(()=>({sum:0,n:0,counts:[0,0,0,0,0]}));
   for (const r of respCache){
     (r.answers||[]).forEach((a,i) => {
-      if (i < sums.length && a.a){
-        sums[i].sum += a.a;
-        sums[i].n += 1;
-        sums[i].counts[a.a-1]++;
+      if (i < sums.length){
+        const s = ansScore(a);
+        if (s){
+          sums[i].sum += s;
+          sums[i].n += 1;
+          sums[i].counts[s-1]++;
+        }
       }
     });
   }
   const overallAvg = sums.reduce((s,x)=>s+(x.n? x.sum/x.n : 0),0) / (sums.length||1);
   $("s-avg").textContent = overallAvg.toFixed(2)+"점";
 
-  // 문항 요약
+  // 문항 요약 (점수 5점이 매우만족이라 위에서 아래로 표시)
   const sumHtml = sums.map((x,i) => {
     const avg = x.n ? (x.sum/x.n).toFixed(2) : "-";
     const text = (qs[i].text||qs[i]||"") + "";
-    const bars = x.counts.map((c,k) => {
+    // 점수 5(매우만족) → 1(매우불만족) 순으로 표시
+    const order = [4,3,2,1,0]; // counts 인덱스: score 5,4,3,2,1
+    const bars = order.map(k => {
+      const c = x.counts[k];
       const pct = x.n ? Math.round(c/x.n*100) : 0;
       return `<div style="display:flex;align-items:center;gap:6px;font-size:11px;margin:2px 0">
-        <span style="width:80px;color:${SLOT_COLORS[k]}">${k+1}.${SLOT_LABELS[k]}</span>
-        <div style="flex:1;background:#f4ebd9;height:14px;border-radius:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${SLOT_COLORS[k]}"></div></div>
-        <span style="width:60px;text-align:right">${c}건 (${pct}%)</span>
+        <span style="width:90px;color:${SCORE_COLORS[k]};font-weight:700">${k+1}점·${SCORE_LABELS[k]}</span>
+        <div style="flex:1;background:#f4ebd9;height:14px;border-radius:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${SCORE_COLORS[k]}"></div></div>
+        <span style="width:70px;text-align:right">${c}건 (${pct}%)</span>
       </div>`;
     }).join("");
     return `<div style="background:#fef6e7;border-radius:10px;padding:12px;margin-bottom:8px">
@@ -575,9 +599,9 @@ function renderResponses(){
   }).join("");
   $("q-summary").innerHTML = sumHtml;
 
-  // 응답 테이블
+  // 응답 테이블 (성별·교급 컬럼 추가)
   const head = $("resp-head");
-  head.innerHTML = "<th>응답시각</th><th>닉네임</th><th>전화뒷4</th><th>시간</th><th>패널티</th>" +
+  head.innerHTML = "<th>응답시각</th><th>닉네임</th><th>성별</th><th>교급</th><th>전화뒷4</th><th>시간</th><th>패널티</th>" +
     qs.map((q,i)=>`<th title="${escapeHtml(q.text||q)}">Q${i+1}</th>`).join("");
   const tb = $("resp-tbody");
   tb.innerHTML = "";
@@ -586,14 +610,17 @@ function renderResponses(){
     let tds = `
       <td>${fmtTs(r.ts || r.clientTs)}</td>
       <td><strong>${escapeHtml(r.name||"")}</strong></td>
+      <td>${escapeHtml(r.gender||"-")}</td>
+      <td>${escapeHtml(r.school||"-")}</td>
       <td>${escapeHtml(r.phone||"")}</td>
       <td>${(r.timeSec||0).toFixed(1)}s</td>
       <td>${(r.penaltySec||0).toFixed(1)}s</td>
     `;
     for (let i=0;i<qs.length;i++){
       const a = (r.answers||[])[i];
-      if (a && a.a){
-        tds += `<td><span class="answer-pill" style="background:${SLOT_COLORS[a.a-1]}">${a.a}.${a.label||SLOT_LABELS[a.a-1]}</span></td>`;
+      const s = ansScore(a);
+      if (s){
+        tds += `<td><span class="answer-pill" style="background:${SCORE_COLORS[s-1]}">${s}점·${ansLabel(a)}</span></td>`;
       } else {
         tds += `<td>-</td>`;
       }
@@ -618,6 +645,8 @@ $("excel-btn").addEventListener("click", () => {
       "프로그램명": r.programName || currentProg.name || "",
       "일자": r.date || currentProg.date || "",
       "닉네임": r.name || "",
+      "성별": r.gender || "",
+      "교급": r.school || "",
       "전화뒷4": r.phone || "",
       "완주시간(초)": r.timeSec || 0,
       "패널티(초)": r.penaltySec || 0
@@ -625,8 +654,9 @@ $("excel-btn").addEventListener("click", () => {
     for (let i=0;i<qs.length;i++){
       const a = (r.answers||[])[i];
       const qt = qs[i].text || qs[i] || ("Q"+(i+1));
-      row["Q"+(i+1)+"_점수"] = a ? a.a : "";
-      row["Q"+(i+1)+"_답변"] = a ? (a.label||SLOT_LABELS[a.a-1]) : "";
+      const s = ansScore(a);
+      row["Q"+(i+1)+"_점수"] = s ?? "";   // 5=매우만족 ~ 1=매우불만족
+      row["Q"+(i+1)+"_답변"] = a ? ansLabel(a) : "";
       row["Q"+(i+1)+"_문항"] = qt;
     }
     return row;
@@ -634,23 +664,24 @@ $("excel-btn").addEventListener("click", () => {
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "응답");
-  // 요약 시트
+  // 요약 시트 (점수 5=매우만족 기준)
   const sumRows = qs.map((q,i) => {
     const counts = [0,0,0,0,0]; let sum=0, n=0;
     for (const r of respCache){
       const a = (r.answers||[])[i];
-      if (a && a.a){ counts[a.a-1]++; sum+=a.a; n++; }
+      const s = ansScore(a);
+      if (s){ counts[s-1]++; sum+=s; n++; }
     }
     return {
       "문항번호": "Q"+(i+1),
       "문항": q.text||q||"",
       "응답수": n,
       "평균": n ? +(sum/n).toFixed(2) : 0,
-      "1.매우만족": counts[0],
-      "2.만족": counts[1],
-      "3.보통": counts[2],
-      "4.불만족": counts[3],
-      "5.매우불만족": counts[4]
+      "5점·매우만족": counts[4],
+      "4점·만족": counts[3],
+      "3점·보통": counts[2],
+      "2점·불만족": counts[1],
+      "1점·매우불만족": counts[0]
     };
   });
   const ws2 = XLSX.utils.json_to_sheet(sumRows);
