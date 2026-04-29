@@ -47,7 +47,7 @@
   #tap-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.7);color:#fff;padding:14px 22px;border-radius:0;font-size:15px;font-weight:700;pointer-events:none;animation:pulse 1s infinite alternate;z-index:6;letter-spacing:1px;border:3px solid #fff;font-family:monospace}
   @keyframes pulse{from{transform:translate(-50%,-50%) scale(1)}to{transform:translate(-50%,-50%) scale(1.06)}}
   #canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;image-rendering:pixelated;image-rendering:crisp-edges}
-  #slot-indicator{position:absolute;top:90px;right:14px;background:rgba(0,0,0,.55);color:#fff;padding:6px 10px;font-size:12px;font-weight:700;font-family:monospace;letter-spacing:1px;z-index:6;pointer-events:none;border:2px solid #fff}
+  #slot-indicator{position:absolute;top:88px;right:12px;background:#fff;padding:6px 12px;font-size:13px;font-weight:800;font-family:-apple-system,BlinkMacSystemFont,sans-serif;z-index:6;pointer-events:none;border:3px solid #000;border-radius:4px;box-shadow:0 2px 6px rgba(0,0,0,.18);transition:color .12s,border-color .12s}
 
   /* Result */
   #result{background:linear-gradient(180deg,#fff2d9 0%,#ffd7a3 100%);overflow-y:auto}
@@ -71,7 +71,7 @@
 
 <div id="intro" class="screen hidden">
   <div class="card">
-    <div class="title"><svg viewBox="0 0 12 12" width="34" height="34" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" style="vertical-align:-7px;margin-right:6px"><g fill="#5e3a17"><rect x="3" y="0" width="6" height="1"/><rect x="2" y="1" width="1" height="1"/><rect x="9" y="1" width="1" height="1"/><rect x="1" y="2" width="1" height="1"/><rect x="10" y="2" width="1" height="1"/><rect x="4" y="11" width="4" height="1"/></g><g fill="#9a6432"><rect x="3" y="1" width="6" height="1"/><rect x="2" y="2" width="8" height="1"/><rect x="1" y="3" width="10" height="1"/><rect x="1" y="4" width="1" height="2"/><rect x="4" y="4" width="4" height="2"/><rect x="10" y="4" width="1" height="2"/><rect x="1" y="6" width="10" height="1"/><rect x="1" y="7" width="3" height="1"/><rect x="1" y="8" width="4" height="1"/><rect x="8" y="7" width="3" height="1"/><rect x="7" y="8" width="4" height="1"/><rect x="2" y="9" width="8" height="1"/><rect x="3" y="10" width="6" height="1"/></g><g fill="#fff"><rect x="2" y="4" width="2" height="1"/><rect x="8" y="4" width="2" height="1"/><rect x="2" y="5" width="1" height="1"/><rect x="8" y="5" width="1" height="1"/></g><g fill="#1a1a1a"><rect x="3" y="5" width="1" height="1"/><rect x="9" y="5" width="1" height="1"/></g><g fill="#3a2010"><rect x="4" y="7" width="4" height="1"/><rect x="5" y="8" width="2" height="1"/></g></svg>서베이런</div>
+    <div class="title">🏃 서베이런</div>
     <div class="subtitle">만족도 조사 게임</div>
     <div id="program-info" class="program-info"></div>
     <div class="field">
@@ -85,9 +85,9 @@
     <div id="form-err" class="err"></div>
     <button id="start-btn" class="start-btn">시작하기</button>
     <div class="help">
-      화면을 탭하면 호두과장이 점프합니다.<br>
-      탭한 횟수만큼 위 칸으로 올라갑니다 (1~5).<br>
-      원하는 만족도 칸으로 벽을 통과하세요!
+      탭 1번 = 점프 1번 (다시 바닥에 떨어집니다)<br>
+      공중에서 빠르게 더 누르면 더 높이 올라가요 (최대 5회)<br>
+      벽이 도착할 때 위치한 칸이 답으로 기록됩니다!
     </div>
   </div>
 </div>
@@ -220,61 +220,67 @@ $("start-btn").addEventListener("click", () => {
   startGame(name, phone);
 });
 
-// ===== 픽셀 아트 캐릭터 (호두과장 인스파이어) =====
-// 색상 키: '.'=투명, b=호두갈색, B=짙은갈색, K=검정, W=하양, g=수트회색, G=짙은회색, r=빨강(타이), s=짙은입
+// ===== 픽셀 아트 캐릭터 (귀여운 호두) =====
+// 색상 키: '.'=투명, b=밝은갈, B=진갈, W=흰자, e=눈동자, p=핑크볼, s=미소, c=노란셔츠, t=바지, k=신발
 const PALETTE = {
   ".": null,
-  "b": "#9a6432",
-  "B": "#5e3a17",
-  "K": "#1a1a1a",
+  "b": "#c08550",
+  "B": "#8b5a2b",
   "W": "#ffffff",
-  "g": "#4a4a4a",
-  "G": "#2a2a2a",
-  "r": "#cc3838",
-  "s": "#3a2010"
+  "e": "#2a3a6b",
+  "p": "#ff8aa8",
+  "s": "#7d4422",
+  "c": "#fdd835",
+  "C": "#f9a825",
+  "t": "#5a5a5a",
+  "k": "#1a1a1a"
 };
 
 const SPRITE_BASE = [
-  "....BBBBBBB.....",
-  "...BbbbbbbbB....",
-  "..BbBbbbbbbbB...",
-  "..BbbBbbbbbBb...",
-  ".bbbbbbbbbbbbb..",
-  ".bbWWbbBbbWWbb..",
-  ".bbWKbbBbbWKbb..",
-  ".bbWWbbBbbWWbb..",
-  ".bbbbbbbbbbbbb..",
-  ".bbbbbssssbbbb..",
-  "..bbBssssssBbb..",
-  "...bbbbbbbbbb...",
-  "....BBBBBBBB....",
-  "....gggggggg....",
-  "...ggWWrWWggg...",
-  "..gggWWrWWgggg..",
-  "..gggWWrWWgggg..",
-  ".ggggWWrWWggggg.",
-  ".ggggWWrWWggggg.",
-  ".gggggWrWgggggg.",
-  ".ggggggrgggggg..",
-  "ggggggGGgggggggg",
+  "....bbbbbb....",
+  "...bbbbbbbb...",
+  "..bbbbbbbbbb..",
+  ".bbbbbbbbbbbb.",
+  "bbbbbbbbbbbbbb",
+  "bWWWbbbbbbWWWb",
+  "bWeebbbbbbeeWb",
+  "bWWWbbbbbbWWWb",
+  "bbbpbbbbbbpbbb",
+  "bbbbbssssbbbbb",
+  "bbbbbbssbbbbbb",
+  ".bbbbbbbbbbbb.",
+  "..bbbbbbbbbb..",
+  "...cccccccc...",
+  "..cccccccccc..",
+  "..ccccCCccccc."
 ];
 const LEGS_A = [
-  "..ggg......ggg..",
-  "..KKK......KKK.."
+  "...tt....tt...",
+  "...kk....kk..."
 ];
 const LEGS_B = [
-  "...gg......gg...",
-  "..KKK......KKK.."
+  "..tt......tt..",
+  "..kk......kk.."
 ];
-const SPRITE_W = 16;
+const SPRITE_W = 14;
 const SPRITE_H = SPRITE_BASE.length + LEGS_A.length;
 
 const PX = 3;
 const CHAR_W = SPRITE_W * PX;
 const CHAR_H = SPRITE_H * PX;
-const HOLE_H = CHAR_H + 14;
-const WALL_W = 12 * PX;
+const HOLE_H = CHAR_H + 16;
+const WALL_W = 11 * PX;
 const SLOTS = 5;
+
+// ===== 점프 물리 =====
+const GRAVITY = 0.0025;        // px/ms²
+const JUMP_BASE = 0.85;        // 첫 탭 (지상 점프) 속도
+const JUMP_BOOST = 0.40;       // 공중 추가 탭당 부스트
+const VY_CAP = -1.70;          // 최대 상승 속도 (위로)
+const SPEED = 0.30;            // 벽 스크롤 속도 px/ms
+const FIRST_DIST = 720;        // 첫 벽까지 거리
+const WALL_DIST = 540;         // 이후 벽 간격
+let SLOT_HS = [0, 130, 270, 410, 550]; // 지면으로부터 슬롯별 높이
 
 const cv = $("canvas");
 const cx = cv.getContext("2d");
@@ -295,13 +301,32 @@ function resize(){
   const hu = $("hud").getBoundingClientRect().height || 40;
   TOP_MARGIN = qb + 18;
   BOTTOM_MARGIN = hu + 26;
+  // 화면 높이에 맞게 슬롯 높이 스케일링
+  const groundY = H - BOTTOM_MARGIN;
+  const minTopY = TOP_MARGIN + CHAR_H + 6;
+  const maxAbove = Math.max(200, groundY - minTopY);
+  const refMax = 580;
+  const scale = Math.min(1, maxAbove / refMax);
+  SLOT_HS = [0, 130*scale, 270*scale, 410*scale, 550*scale];
 }
 window.addEventListener("resize", () => { if (game) resize(); });
 
+function feetYAtSlot(s){
+  const groundY = H - BOTTOM_MARGIN;
+  return groundY - SLOT_HS[s-1];
+}
 function slotCenterY(s){
-  const top = TOP_MARGIN + CHAR_H/2 + 4;
-  const bottom = H - BOTTOM_MARGIN - CHAR_H/2;
-  return bottom - ((s-1)/(SLOTS-1)) * (bottom - top);
+  return feetYAtSlot(s) - CHAR_H/2;
+}
+function computeSlotFromFeet(feetY){
+  const groundY = H - BOTTOM_MARGIN;
+  const above = Math.max(0, groundY - feetY);
+  let best = 0, bestD = Infinity;
+  for (let i=0; i<5; i++){
+    const d = Math.abs(above - SLOT_HS[i]);
+    if (d < bestD){ bestD = d; best = i; }
+  }
+  return best + 1;
 }
 
 function drawSprite(rows, ox, oy){
@@ -332,6 +357,7 @@ function startGame(name, phone){
 }
 
 function initGame(name, phone){
+  const groundY = H - BOTTOM_MARGIN;
   game = {
     name, phone,
     questions: program.questions,
@@ -341,17 +367,16 @@ function initGame(name, phone){
     finished: false,
     runX: 0,
     walls: [],
-    player: { x: Math.max(70, W*0.18), cy: slotCenterY(1), targetSlot: 1 },
+    player: { x: Math.max(70, W*0.18), feetY: groundY, vy: 0, onGround: true, tapCount: 0 },
     showHint: true,
     frame: 0
   };
-  spawnNextWall(900, 0);
+  spawnNextWall(FIRST_DIST, 0);
   window.__game = game;
   $("q-text").textContent = game.questions[0].text || game.questions[0];
   $("q-counter").textContent = "QUESTION 1";
   $("q-progress").textContent = "1/" + game.questions.length;
-  $("slot-indicator").textContent = "SLOT 1 (매우만족)";
-  $("slot-indicator").style.borderColor = SLOT_COLORS[0];
+  updateSlotIndicator();
   $("tap-hint").classList.remove("hidden");
   setTimeout(() => { if(game) game.showHint = false; $("tap-hint").classList.add("hidden"); }, 2400);
   lastT = 0;
@@ -374,15 +399,24 @@ function spawnNextWall(distance, qIdx){
 function jump(){
   if (!game || game.finished) return;
   if (game.showHint){ game.showHint = false; $("tap-hint").classList.add("hidden"); }
-  if (game.player.targetSlot < SLOTS){
-    game.player.targetSlot++;
-    updateSlotIndicator();
+  const p = game.player;
+  if (p.onGround){
+    // 지상 점프
+    p.vy = -JUMP_BASE;
+    p.onGround = false;
+    p.tapCount = 1;
+  } else if (p.tapCount < 5){
+    // 공중 부스트
+    p.tapCount++;
+    p.vy = Math.max(VY_CAP, p.vy - JUMP_BOOST);
   }
 }
 function updateSlotIndicator(){
-  const s = game.player.targetSlot;
-  $("slot-indicator").textContent = "SLOT " + s + " ("+SLOT_LABELS[s-1]+")";
+  if (!game) return;
+  const s = computeSlotFromFeet(game.player.feetY);
+  $("slot-indicator").textContent = s + ". " + SLOT_LABELS[s-1];
   $("slot-indicator").style.borderColor = SLOT_COLORS[s-1];
+  $("slot-indicator").style.color = SLOT_COLORS[s-1];
 }
 cv.addEventListener("touchstart", e => { e.preventDefault(); jump(); }, {passive:false});
 cv.addEventListener("mousedown", jump);
@@ -400,22 +434,36 @@ function loop(t){
 
   drawClouds();
   drawGround();
+  drawSlotGuide();
 
-  const SPEED = 0.22;
   const moveX = SPEED * dt;
   game.runX += moveX;
 
-  // 플레이어 y 부드럽게
-  const targetY = slotCenterY(game.player.targetSlot);
-  game.player.cy += (targetY - game.player.cy) * 0.22;
+  // 플레이어 물리 업데이트
+  const p = game.player;
+  const groundY = H - BOTTOM_MARGIN;
+  const minFeetY = TOP_MARGIN + CHAR_H + 6;
+  if (!p.onGround){
+    p.vy += GRAVITY * dt;
+    p.feetY += p.vy * dt;
+    if (p.feetY < minFeetY){ p.feetY = minFeetY; if (p.vy < 0) p.vy = 0; }
+    if (p.feetY >= groundY){
+      p.feetY = groundY;
+      p.vy = 0;
+      p.onGround = true;
+      p.tapCount = 0;
+    }
+  }
+  // 실시간 슬롯 표시
+  updateSlotIndicator();
 
   // 벽 업데이트 + 충돌
   for (const w of game.walls){
     w.x -= moveX;
     drawWall(w);
-    if (!w.passed && w.x + WALL_W*0.5 <= game.player.x){
+    if (!w.passed && w.x + WALL_W*0.5 <= p.x){
       w.passed = true;
-      const slot = game.player.targetSlot;
+      const slot = computeSlotFromFeet(p.feetY);
       game.answers.push({ q: game.questions[w.qIdx].text || game.questions[w.qIdx], a: slot, label: SLOT_LABELS[slot-1] });
       flashHole(slot);
       game.qIdx++;
@@ -423,9 +471,7 @@ function loop(t){
         $("q-text").textContent = game.questions[game.qIdx].text || game.questions[game.qIdx];
         $("q-counter").textContent = "QUESTION " + (game.qIdx+1);
         $("q-progress").textContent = (game.qIdx+1) + "/" + game.questions.length;
-        spawnNextWall(700, game.qIdx);
-        game.player.targetSlot = 1;
-        updateSlotIndicator();
+        spawnNextWall(WALL_DIST, game.qIdx);
       } else {
         finishGame();
       }
@@ -520,16 +566,15 @@ function drawWall(w){
   }
 
   // 구멍 테두리
+  const liveSlot = game ? computeSlotFromFeet(game.player.feetY) : 0;
   for (let s=1;s<=SLOTS;s++){
     const cy = slotCenterY(s);
-    const isTarget = game && (game.player.targetSlot === s);
+    const isLive = (liveSlot === s);
     cx.fillStyle = SLOT_COLORS[s-1];
-    // 위/아래 라인
     pxRect(wx - PX, cy - HOLE_H/2 - PX, WALL_W + PX*2, PX);
     pxRect(wx - PX, cy + HOLE_H/2, WALL_W + PX*2, PX);
-    if (isTarget){
-      // 강조 (점멸)
-      const alpha = 0.4 + 0.4*Math.sin(performance.now()/120);
+    if (isLive){
+      const alpha = 0.4 + 0.4*Math.sin(performance.now()/140);
       cx.save();
       cx.globalAlpha = alpha;
       cx.fillStyle = SLOT_COLORS[s-1];
@@ -572,18 +617,41 @@ function drawFlash(){
   if (flashState.t > 22) flashState = null;
 }
 
+function drawSlotGuide(){
+  // 5개 슬롯 위치를 점선으로 안내
+  const groundY = H - BOTTOM_MARGIN;
+  for (let s=2; s<=5; s++){
+    const y = groundY - SLOT_HS[s-1];
+    cx.fillStyle = SLOT_COLORS[s-1] + "40";
+    for (let x=0; x<W; x+=PX*4){
+      cx.fillRect(Math.round(x), Math.round(y), PX*2, 1);
+    }
+  }
+}
+
 function drawPlayer(){
   game.frame++;
-  const bobOffset = Math.floor(game.frame/6) % 2 === 0 ? 0 : -PX;
-  const legs = Math.floor(game.frame/8) % 2 === 0 ? LEGS_A : LEGS_B;
+  const p = game.player;
+  // 공중일 때는 다리 모으기, 지상에서 달릴 때 다리 교차
+  let legs;
+  if (p.onGround){
+    legs = Math.floor(game.frame/6) % 2 === 0 ? LEGS_A : LEGS_B;
+  } else {
+    legs = LEGS_A;
+  }
+  const bobOffset = p.onGround ? (Math.floor(game.frame/6) % 2 === 0 ? 0 : -PX) : 0;
   const sprite = SPRITE_BASE.concat(legs);
 
-  const ox = game.player.x - CHAR_W/2;
-  const oy = game.player.cy - CHAR_H/2 + bobOffset;
+  const ox = p.x - CHAR_W/2;
+  const oy = p.feetY - CHAR_H + bobOffset;
 
-  // 그림자
-  cx.fillStyle = "rgba(0,0,0,.18)";
-  pxRect(ox + 2*PX, game.player.cy + CHAR_H/2 - PX, CHAR_W - 4*PX, PX);
+  // 그림자 — 항상 지면에 (점프해도 지면에 고정)
+  const groundY = H - BOTTOM_MARGIN;
+  const heightAbove = Math.max(0, groundY - p.feetY);
+  const shadowAlpha = Math.max(0.06, 0.22 - heightAbove*0.0003);
+  const shadowW = CHAR_W - 4*PX - Math.min(CHAR_W*0.4, heightAbove*0.05);
+  cx.fillStyle = `rgba(0,0,0,${shadowAlpha})`;
+  pxRect(p.x - shadowW/2, groundY - PX, shadowW, PX);
 
   drawSprite(sprite, ox, oy);
 }
