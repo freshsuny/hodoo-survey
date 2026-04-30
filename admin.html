@@ -599,9 +599,9 @@ function renderResponses(){
   }).join("");
   $("q-summary").innerHTML = sumHtml;
 
-  // 응답 테이블 (성별·교급·총점 컬럼 추가)
+  // 응답 테이블 (성별·교급·캐릭터·총점 컬럼 추가)
   const head = $("resp-head");
-  head.innerHTML = "<th>응답시각</th><th>닉네임</th><th>성별</th><th>교급</th><th>전화뒷4</th><th>시간</th><th>페널티</th><th>총점</th>" +
+  head.innerHTML = "<th>응답시각</th><th>닉네임</th><th>성별</th><th>교급</th><th>캐릭터</th><th>전화뒷4</th><th>시간</th><th>페널티</th><th>총점</th>" +
     qs.map((q,i)=>`<th title="${escapeHtml(q.text||q)}">Q${i+1}</th>`).join("");
   const tb = $("resp-tbody");
   tb.innerHTML = "";
@@ -618,6 +618,7 @@ function renderResponses(){
       <td><strong>${escapeHtml(r.name||"")}</strong></td>
       <td>${escapeHtml(r.gender||"-")}</td>
       <td>${escapeHtml(r.school||"-")}</td>
+      <td>${escapeHtml(r.characterName||"-")}</td>
       <td>${escapeHtml(r.phone||"")}</td>
       <td>${(r.timeSec||0).toFixed(1)}s</td>
       <td>${(r.penaltySec||0).toFixed(1)}s</td>
@@ -659,6 +660,7 @@ $("excel-btn").addEventListener("click", () => {
       "닉네임": r.name || "",
       "성별": r.gender || "",
       "교급": r.school || "",
+      "캐릭터": r.characterName || "",
       "전화뒷4": r.phone || "",
       "총점": total,
       "만점": max,

@@ -37,6 +37,13 @@
   .pill input{display:none}
   .pill span{display:inline-block;padding:8px 14px;border:2px solid #e8d4b6;border-radius:20px;background:#fffaf0;font-size:14px;font-weight:600;color:#7d5a3c;transition:all .12s}
   .pill input:checked + span{background:linear-gradient(135deg,#d9a06b,#7d5a3c);color:#fff;border-color:#7d5a3c;box-shadow:0 2px 6px rgba(125,90,60,.25)}
+  .char-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .char-card{background:#fffaf0;border:2px solid #e8d4b6;border-radius:10px;padding:10px 4px 8px;text-align:center;cursor:pointer;transition:all .12s;font-family:inherit}
+  .char-card canvas{display:block;margin:0 auto 4px;image-rendering:pixelated}
+  .char-card .nm{display:block;font-size:11px;font-weight:700;color:#7d5a3c}
+  .char-card:hover{border-color:#c89b6a}
+  .char-card.selected{background:linear-gradient(135deg,#fff7d0,#ffe2a0);border-color:#d9a040;box-shadow:0 4px 10px rgba(217,160,64,.35);transform:translateY(-2px)}
+  .char-card.selected .nm{color:#7a5410}
   .start-btn{width:100%;padding:14px;background:linear-gradient(135deg,#d9a06b,#7d5a3c);color:#fff;font-size:17px;font-weight:700;border-radius:12px;margin-top:8px;box-shadow:0 4px 12px rgba(125,90,60,.3)}
   .start-btn:active{transform:translateY(1px)}
   .help{font-size:12px;color:#9a7a5a;margin-top:14px;line-height:1.5;text-align:center}
@@ -92,6 +99,10 @@
     <div class="title">🏃 서베이런</div>
     <div class="subtitle">만족도 조사 게임</div>
     <div id="program-info" class="program-info"></div>
+    <div class="field">
+      <label>캐릭터 선택 <span class="hint" style="color:#7d5a3c">천안프렌즈 6종</span></label>
+      <div class="char-grid" id="char-grid"></div>
+    </div>
     <div class="field">
       <label for="nickname">닉네임 <span class="hint">실명 X · 별명/아이디만</span></label>
       <input id="nickname" type="text" maxlength="12" placeholder="별명 또는 게임 이름">
@@ -259,6 +270,40 @@ function showIntro(){
     const r = document.querySelector('input[name="school"][value="'+saved.school+'"]');
     if (r) r.checked = true;
   }
+  if (saved.charId){
+    const c = CHARACTERS.find(x => x.id === saved.charId);
+    if (c) currentChar = c;
+  }
+  renderCharacterGrid();
+}
+
+function renderCharacterGrid(){
+  const grid = $("char-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  CHARACTERS.forEach(c => {
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "char-card" + (currentChar.id === c.id ? " selected" : "");
+    card.dataset.charId = c.id;
+    const cv = document.createElement("canvas");
+    cv.width = 56; cv.height = 72;
+    const ctx = cv.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    const previewPalette = Object.assign({}, PALETTE, c.pal);
+    const sprite = SPRITE_BASE.concat(LEGS_A);
+    drawSprite(sprite, 0, 0, previewPalette, ctx, 4);
+    card.appendChild(cv);
+    const nm = document.createElement("span");
+    nm.className = "nm";
+    nm.textContent = c.name;
+    card.appendChild(nm);
+    card.addEventListener("click", () => {
+      currentChar = c;
+      renderCharacterGrid();
+    });
+    grid.appendChild(card);
+  });
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
@@ -273,12 +318,13 @@ $("start-btn").addEventListener("click", () => {
   if (!school){ $("form-err").textContent = "교급을 선택해주세요."; return; }
   if (!/^\d{4}$/.test(phone)){ $("form-err").textContent = "전화번호 뒷 4자리를 입력해주세요."; return; }
   $("form-err").textContent = "";
-  sessionStorage.setItem("hodoo_user", JSON.stringify({name,phone,gender,school}));
-  startGame({name, phone, gender, school});
+  const charId = currentChar.id;
+  sessionStorage.setItem("hodoo_user", JSON.stringify({name,phone,gender,school,charId}));
+  startGame({name, phone, gender, school, charId});
 });
 
-// ===== 픽셀 아트 캐릭터 (귀여운 호두) =====
-// 색상 키: '.'=투명, b=밝은갈, B=진갈, W=흰자, e=눈동자, p=핑크볼, s=미소, c=노란셔츠, t=바지, k=신발
+// ===== 픽셀 아트 캐릭터 (천안프렌즈 6종) =====
+// 색상 키: '.'=투명, b=머리밝은색, B=머리진한색, W=흰자, e=눈동자, p=볼터치, s=미소, c=옷색, C=옷그늘, t=바지, k=신발
 const PALETTE = {
   ".": null,
   "b": "#c08550",
@@ -292,6 +338,26 @@ const PALETTE = {
   "t": "#5a5a5a",
   "k": "#1a1a1a"
 };
+
+// 천안프렌즈 6종 — 머리(b/B) + 옷(c/C) 색만 캐릭터별로 다르게
+const CHARACTERS = [
+  { id:"hodoo", name:"호두과장", emoji:"🌰",
+    pal:{ b:"#c08550", B:"#8b5a2b", c:"#fdd835", C:"#f9a825" } },
+  { id:"oh", name:"오이사", emoji:"🥒",
+    pal:{ b:"#8bc34a", B:"#558b2f", c:"#ffffff", C:"#cc3838" } },
+  { id:"melon", name:"멜부장", emoji:"🍈",
+    pal:{ b:"#c5e1a5", B:"#7cb342", c:"#fdd835", C:"#f9a825" } },
+  { id:"bong", name:"봉팀장", emoji:"🍇",
+    pal:{ b:"#ab7ac9", B:"#6a3b8a", c:"#42a5f5", C:"#1565c0" } },
+  { id:"soon", name:"순대리", emoji:"🍠",
+    pal:{ b:"#8e3a5a", B:"#5b1f38", c:"#ef5350", C:"#a02828" } },
+  { id:"bae", name:"배사원", emoji:"🍐",
+    pal:{ b:"#dce775", B:"#9e9d24", c:"#42a5f5", C:"#1565c0" } }
+];
+let currentChar = CHARACTERS[0];
+function getCharPalette(){
+  return Object.assign({}, PALETTE, currentChar.pal);
+}
 
 const SPRITE_BASE = [
   "....bbbbbb....",
@@ -387,17 +453,20 @@ function computeSlotFromFeet(feetY){
   return best + 1;
 }
 
-function drawSprite(rows, ox, oy){
+function drawSprite(rows, ox, oy, paletteOverride, ctx, scale){
+  const pal = paletteOverride || PALETTE;
+  const drawCtx = ctx || cx;
+  const px = scale || PX;
   const h = rows.length;
   const w = rows[0].length;
   for (let r=0; r<h; r++){
     const line = rows[r];
     for (let c=0; c<w; c++){
       const ch = line[c];
-      const color = PALETTE[ch];
+      const color = pal[ch];
       if (color){
-        cx.fillStyle = color;
-        cx.fillRect(Math.round(ox + c*PX), Math.round(oy + r*PX), PX, PX);
+        drawCtx.fillStyle = color;
+        drawCtx.fillRect(Math.round(ox + c*px), Math.round(oy + r*px), px, px);
       }
     }
   }
@@ -421,6 +490,8 @@ function initGame(user){
     phone: user.phone,
     gender: user.gender || "",
     school: user.school || "",
+    charId: user.charId || currentChar.id,
+    charName: (CHARACTERS.find(c=>c.id===(user.charId||currentChar.id))||CHARACTERS[0]).name,
     questions: program.questions,
     qIdx: 0,
     answers: [],
@@ -485,8 +556,8 @@ function spawnNextWall(distance, qIdx, includeObstacle = true){
     passed: false,
     qIdx: qIdx
   });
-  // 벽 사이에 장애물 — 70% 확률. 너무 많지는 않게 1개만.
-  if (includeObstacle && Math.random() < 0.7){
+  // 벽 사이마다 장애물 1개 항상 등장 (첫 벽 전 제외)
+  if (includeObstacle){
     const offset = distance * (0.42 + Math.random() * 0.25);
     game.obstacles.push(makeObstacle(W + offset));
   }
@@ -1022,7 +1093,7 @@ function drawPlayer(){
   cx.fillStyle = `rgba(0,0,0,${shadowAlpha})`;
   pxRect(p.x - shadowW/2, groundY - PX, shadowW, PX);
 
-  drawSprite(sprite, ox, oy);
+  drawSprite(sprite, ox, oy, getCharPalette());
 }
 
 function finishGame(){
@@ -1062,6 +1133,8 @@ function finishGame(){
     phone: game.phone,
     gender: game.gender || "",
     school: game.school || "",
+    character: game.charId || "",
+    characterName: game.charName || "",
     timeSec: +elapsed.toFixed(2),
     penaltySec: +((game.penaltyMs||0)/1000).toFixed(2),
     totalScore: game.totalScore || 0,
