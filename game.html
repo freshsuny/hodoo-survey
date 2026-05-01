@@ -281,18 +281,29 @@ function renderCharacterGrid(){
   const grid = $("char-grid");
   if (!grid) return;
   grid.innerHTML = "";
+  // 모든 카드의 캔버스를 동일한 비주얼 크기로 — 가장 큰 캐릭터에 맞춰 통일 (작은 캐릭터는 아래에 배치)
+  const maxBodyH = Math.max(...CHARACTERS.map(c => c.body.length + c.legsA.length));
+  const maxBodyW = Math.max(...CHARACTERS.map(c => c.body[0].length));
+  const previewScale = 4;
+  const cvW = maxBodyW * previewScale;
+  const cvH = maxBodyH * previewScale;
   CHARACTERS.forEach(c => {
     const card = document.createElement("button");
     card.type = "button";
     card.className = "char-card" + (currentChar.id === c.id ? " selected" : "");
     card.dataset.charId = c.id;
     const cv = document.createElement("canvas");
-    cv.width = 56; cv.height = 72;
+    cv.width = cvW; cv.height = cvH;
     const ctx = cv.getContext("2d");
     ctx.imageSmoothingEnabled = false;
     const previewPalette = Object.assign({}, PALETTE, c.pal);
-    const sprite = SPRITE_BASE.concat(LEGS_A);
-    drawSprite(sprite, 0, 0, previewPalette, ctx, 4);
+    const sprite = c.body.concat(c.legsA);
+    // 캐릭터를 캔버스 가운데 (가로) + 바닥 (세로) 정렬
+    const charPxW = c.body[0].length * previewScale;
+    const charPxH = sprite.length * previewScale;
+    const ox = (cvW - charPxW) / 2;
+    const oy = cvH - charPxH;
+    drawSprite(sprite, ox, oy, previewPalette, ctx, previewScale);
     card.appendChild(cv);
     const nm = document.createElement("span");
     nm.className = "nm";
@@ -324,7 +335,7 @@ $("start-btn").addEventListener("click", () => {
 });
 
 // ===== 픽셀 아트 캐릭터 (천안프렌즈 6종) =====
-// 색상 키: '.'=투명, b=머리밝은색, B=머리진한색, W=흰자, e=눈동자, p=볼터치, s=미소, c=옷색, C=옷그늘, t=바지, k=신발
+// 색상 키: '.'=투명, b/B=머리, W=하양, e=눈동자, p=볼터치, s=미소, c/C=옷, r=악센트(타이/콜라), L=잎/머리장식, t=바지, k=신발
 const PALETTE = {
   ".": null,
   "b": "#c08550",
@@ -335,63 +346,191 @@ const PALETTE = {
   "s": "#7d4422",
   "c": "#fdd835",
   "C": "#f9a825",
+  "r": "#c63a3a",
+  "L": "#5fa84d",
   "t": "#5a5a5a",
   "k": "#1a1a1a"
 };
 
-// 천안프렌즈 6종 — 머리(b/B) + 옷(c/C) 색만 캐릭터별로 다르게
+// 천안프렌즈 6종 — 캐릭터별로 고유한 스프라이트(체형·키·악세서리) + 색상
+// 각 행은 14자, 캐릭터별로 높이가 다름 (오이사/순대리는 더 큼)
 const CHARACTERS = [
-  { id:"hodoo", name:"호두과장", emoji:"🌰",
-    pal:{ b:"#c08550", B:"#8b5a2b", c:"#fdd835", C:"#f9a825" } },
-  { id:"oh", name:"오이사", emoji:"🥒",
-    pal:{ b:"#8bc34a", B:"#558b2f", c:"#ffffff", C:"#cc3838" } },
-  { id:"melon", name:"멜부장", emoji:"🍈",
-    pal:{ b:"#c5e1a5", B:"#7cb342", c:"#fdd835", C:"#f9a825" } },
-  { id:"bong", name:"봉팀장", emoji:"🍇",
-    pal:{ b:"#ab7ac9", B:"#6a3b8a", c:"#42a5f5", C:"#1565c0" } },
-  { id:"soon", name:"순대리", emoji:"🍠",
-    pal:{ b:"#8e3a5a", B:"#5b1f38", c:"#ef5350", C:"#a02828" } },
-  { id:"bae", name:"배사원", emoji:"🍐",
-    pal:{ b:"#dce775", B:"#9e9d24", c:"#42a5f5", C:"#1565c0" } }
+  {
+    id: "hodoo", name: "호두과장", emoji: "🌰",
+    // 호두 머리 + 회색 정장 + 빨간 타이
+    pal: { b:"#a0682a", B:"#5e3a17", c:"#5a5a5a", C:"#3a3a3a", r:"#c63a3a", t:"#3a3a3a" },
+    body: [
+      '....bbbbbb....',
+      '...bbbbbbbb...',
+      '..bbBbbbbBbb..',
+      '.bbbbBbbBbbbb.',
+      'bbbbbbbbbbbbbb',
+      'bbWWbbBbbWWbbb',
+      'bbWebbBbbWebbb',
+      'bbWWbbbbbbWWbb',
+      'bbbbbbbbbbbbbb',
+      '.bbbbssssbbbb.',
+      '..bbbssssbbb..',
+      '...bbbbbbbb...',
+      '..cccccrccccc.',
+      '.ccWWrrrrWWcc.',
+      '.cccWrrrrWccc.',
+      '.cccccrrcccccc'
+    ],
+    legsA: ['...tt....tt...', '...kk....kk...'],
+    legsB: ['..tt......tt..', '..kk......kk..']
+  },
+  {
+    id: "oh", name: "오이사", emoji: "🥒",
+    // 길쭉한 오이 + 둥근 안경 + 흰 셔츠 + 빨간 타이 + 회색 바지 (TALL)
+    pal: { b:"#9bc943", B:"#558b2f", c:"#ffffff", C:"#dddddd", r:"#c63a3a", L:"#3d7a30", t:"#3a3a3a" },
+    body: [
+      '......LL......',
+      '.....LbL......',
+      '....BbbB......',
+      '....bbbb......',
+      '...bbbbbb.....',
+      '..bbbbbbbb....',
+      '..bbbbbbbb....',
+      '..bWWbbbbWWb..',
+      '..bWebbbbeWb..',
+      '..bWWbbbbWWb..',
+      '..bbbbbbbbbb..',
+      '...bbbssbbbb..',
+      '...bbbbbbbb...',
+      '....bbbbbb....',
+      '....cccccc....',
+      '...cccrrccc...',
+      '...cccrrccc...',
+      '...ccccrccc...',
+      '..tttttttttt..',
+      '..tttttttttt..'
+    ],
+    legsA: ['....tt..tt....', '....kk..kk....'],
+    legsB: ['...tt....tt...', '...kk....kk...']
+  },
+  {
+    id: "melon", name: "멜부장", emoji: "🍈",
+    // 둥근 멜론 + 잎 한장 + 사각 안경 + 노란 셔츠
+    pal: { b:"#c5e1a5", B:"#558b2f", c:"#fdd835", C:"#f9a825", L:"#43a047", t:"#5a5a5a" },
+    body: [
+      '......L.......',
+      '.....LLL......',
+      '......L.......',
+      '....BBBBBB....',
+      '..BbbbbbbbbB..',
+      '.bbbbbbbbbbbb.',
+      'bbbbbbbbbbbbbb',
+      'bWWWbbbbbbWWWb',
+      'bWeWbbbbbbWeWb',
+      'bWWWbbbbbbWWWb',
+      'bbbbbbbbbbbbbb',
+      '.bbbbssssbbbb.',
+      '..bbbsssbbbbb.',
+      '...bbbbbbbb...',
+      '..ccccCCcccc..',
+      '..ccccccccccc.'
+    ],
+    legsA: ['...tt....tt...', '...kk....kk...'],
+    legsB: ['..tt......tt..', '..kk......kk..']
+  },
+  {
+    id: "bong", name: "봉팀장", emoji: "🍇",
+    // 통통한 보라 포도 + 회색 스웨터 + 파란 콜라
+    pal: { b:"#b39ddb", B:"#5e35b1", c:"#5a5a5a", C:"#3a3a3a", r:"#1976d2", t:"#3a3a3a" },
+    body: [
+      '...BBBBBBBB...',
+      '.bBbbbbbbbbBb.',
+      'BbbbbbbbbbbbbB',
+      'bbbbbbbbbbbbbb',
+      'bbbbbbbbbbbbbb',
+      'bbWWbbbbbbWWbb',
+      'bbWebbbbbbeWbb',
+      'bbWWbbbbbbWWbb',
+      'bbbpbbbbbbbpbb',
+      'bbbbssssssbbbb',
+      'bbbbbssssbbbbb',
+      '.bbbbbbbbbbbb.',
+      '..bbbbbbbbbb..',
+      '..ccccrrccccc.',
+      '..ccccccccccc.',
+      '..cccCCccccccc'
+    ],
+    legsA: ['...tt....tt...', '...kk....kk...'],
+    legsB: ['..tt......tt..', '..kk......kk..']
+  },
+  {
+    id: "soon", name: "순대리", emoji: "🍠",
+    // 길쭉한 자주색 머리 + 노란 콜라 + 빨간 셔츠 (slightly tall)
+    pal: { b:"#8e3a5a", B:"#4a1f30", c:"#ef5350", C:"#c62828", r:"#fdd835", t:"#3a3a3a" },
+    body: [
+      '....BBBBBB....',
+      '...bbbbbbbb...',
+      '..bbbbbbbbbb..',
+      '..bbbbbbbbbb..',
+      '.bbbbbbbbbbbb.',
+      '.bbWWbbbbWWbb.',
+      '.bbWebbbbeWbb.',
+      '.bbWWbbbbWWbb.',
+      '.bbbbbbbbbbbb.',
+      '.bbbpbbbbpbbb.',
+      '.bbbbssssssbb.',
+      '.bbbbbssssbbb.',
+      '..bbbbbbbbbb..',
+      '...bbbbbbbb...',
+      '..rrrrrrrrrr..',
+      '..ccccccccccc.',
+      '..ccccccccccc.',
+      '..cccCCccccccc'
+    ],
+    legsA: ['...tt....tt...', '...kk....kk...'],
+    legsB: ['..tt......tt..', '..kk......kk..']
+  },
+  {
+    id: "bae", name: "배사원", emoji: "🍐",
+    // 배 모양 (아래쪽이 넓음) + 잎 + 흰 콜라 + 파란 교복
+    pal: { b:"#dce775", B:"#9e9d24", c:"#1976d2", C:"#0d47a1", r:"#ffffff", L:"#43a047", t:"#1a1a1a" },
+    body: [
+      '......LL......',
+      '.....LBLb.....',
+      '....bbbb......',
+      '...bbbbbb.....',
+      '..bbbbbbbb....',
+      '.bbbbbbbbbbb..',
+      '.bWWbbbbWWbb..',
+      '.bWebbbbeWbb..',
+      '.bWWbbbbWWbb..',
+      '.bbbpbbbbpbbb.',
+      'bbbbssssbbbbbb',
+      'bbbbbssbbbbbbb',
+      'bbbbbbbbbbbbbb',
+      '.bbbbbbbbbbbb.',
+      '..rrrrrrrrrr..',
+      '..ccccccccccc.',
+      '..cccCCccccccc',
+      '..ccccccccccc.'
+    ],
+    legsA: ['...tt....tt...', '...kk....kk...'],
+    legsB: ['..tt......tt..', '..kk......kk..']
+  }
 ];
 let currentChar = CHARACTERS[0];
 function getCharPalette(){
   return Object.assign({}, PALETTE, currentChar.pal);
 }
-
-const SPRITE_BASE = [
-  "....bbbbbb....",
-  "...bbbbbbbb...",
-  "..bbbbbbbbbb..",
-  ".bbbbbbbbbbbb.",
-  "bbbbbbbbbbbbbb",
-  "bWWWbbbbbbWWWb",
-  "bWeebbbbbbeeWb",
-  "bWWWbbbbbbWWWb",
-  "bbbpbbbbbbpbbb",
-  "bbbbbssssbbbbb",
-  "bbbbbbssbbbbbb",
-  ".bbbbbbbbbbbb.",
-  "..bbbbbbbbbb..",
-  "...cccccccc...",
-  "..cccccccccc..",
-  "..ccccCCccccc."
-];
-const LEGS_A = [
-  "...tt....tt...",
-  "...kk....kk..."
-];
-const LEGS_B = [
-  "..tt......tt..",
-  "..kk......kk.."
-];
-const SPRITE_W = 14;
-const SPRITE_H = SPRITE_BASE.length + LEGS_A.length;
+function curCharBody(){ return currentChar.body; }
+function curCharLegs(frame, onGround){
+  if (onGround && Math.floor(frame/6) % 2 === 1) return currentChar.legsB;
+  return currentChar.legsA;
+}
+function curCharW(){ return currentChar.body[0].length * PX; }
+function curCharH(){ return (currentChar.body.length + currentChar.legsA.length) * PX; }
 
 const PX = 3;
-const CHAR_W = SPRITE_W * PX;
-const CHAR_H = SPRITE_H * PX;
-const HOLE_H = CHAR_H + 16;
+// 캐릭터별 키가 다르므로 벽 구멍은 최대 키 기준으로 잡음
+const MAX_SPRITE_H = Math.max(...CHARACTERS.map(c => c.body.length + c.legsA.length));
+const MAX_CHAR_H = MAX_SPRITE_H * PX;
+const HOLE_H = MAX_CHAR_H + 16;
 const WALL_W = 11 * PX;
 const SLOTS = 5;
 
@@ -425,9 +564,9 @@ function resize(){
   // 캔버스 내부 여백 (구름/지면)
   TOP_MARGIN = 24;
   BOTTOM_MARGIN = 36;
-  // 화면 높이에 맞게 슬롯 높이 스케일링
+  // 화면 높이에 맞게 슬롯 높이 스케일링 (최대 키 캐릭터 기준)
   const groundY = H - BOTTOM_MARGIN;
-  const minTopY = TOP_MARGIN + CHAR_H + 6;
+  const minTopY = TOP_MARGIN + MAX_CHAR_H + 6;
   const maxAbove = Math.max(160, groundY - minTopY);
   const refMax = 540;
   const scale = Math.min(1, maxAbove / refMax);
@@ -440,7 +579,7 @@ function feetYAtSlot(s){
   return groundY - SLOT_HS[s-1];
 }
 function slotCenterY(s){
-  return feetYAtSlot(s) - CHAR_H/2;
+  return feetYAtSlot(s) - MAX_CHAR_H/2;
 }
 function computeSlotFromFeet(feetY){
   const groundY = H - BOTTOM_MARGIN;
@@ -669,7 +808,7 @@ function jump(){
   p.phase = 'rising';
   p.vy = 0;
   if (wasOnGround) spawnDust(p.x, H - BOTTOM_MARGIN);
-  spawnCombo(p.x, p.feetY - CHAR_H + 4, p.tapCount);
+  spawnCombo(p.x, p.feetY - curCharH() + 4, p.tapCount);
 }
 function updateSlotIndicator(){
   if (!game) return;
@@ -692,7 +831,7 @@ let dust = [], combos = [], texts = [];
 function spawnDust(x, baseY){
   for (let i=0; i<6; i++){
     dust.push({
-      x: x + (Math.random()-0.5)*CHAR_W*0.7,
+      x: x + (Math.random()-0.5)*curCharW()*0.7,
       y: baseY - 2,
       vx: (Math.random()-0.5)*0.18,
       vy: -Math.random()*0.14 - 0.04,
@@ -815,14 +954,14 @@ function loop(t){
     const hw = obstacleHalfW(o);
     const oh = obstacleHeight(o);
     const obsTop = groundY0 - oh;
-    const overlapX = Math.abs(o.x - game.player.x) < hw + CHAR_W*0.35;
+    const overlapX = Math.abs(o.x - game.player.x) < hw + curCharW()*0.35;
     if (overlapX){
       // 플레이어 발이 장애물 윗면보다 아래(=장애물에 부딪힘)
       if (game.player.feetY > obsTop - PX){
         o.passed = true;
         game.stunUntil = now + 700;
         game.penaltyMs = (game.penaltyMs||0) + 700;
-        spawnText(game.player.x, game.player.feetY - CHAR_H - 8, "충돌!", "#e53935");
+        spawnText(game.player.x, game.player.feetY - curCharH() - 8, "충돌!", "#e53935");
       } else if (o.x + hw < game.player.x){
         o.passed = true;
       }
@@ -888,10 +1027,10 @@ function loop(t){
       $("total-score").textContent = game.totalScore;
       flashHole(slot);
       if (missed){
-        spawnText(p.x, p.feetY - CHAR_H - 12, "탭 안 함!", "#e53935");
+        spawnText(p.x, p.feetY - curCharH() - 12, "탭 안 함!", "#e53935");
       } else {
         // "+N점" 강조 + 라벨
-        spawnText(p.x, p.feetY - CHAR_H - 12, "+" + score + "점 " + SLOT_LABELS[slot-1], SLOT_COLORS[slot-1]);
+        spawnText(p.x, p.feetY - curCharH() - 12, "+" + score + "점 " + SLOT_LABELS[slot-1], SLOT_COLORS[slot-1]);
       }
       // 벽 통과 후 다음 벽을 위해 리셋 — 공중이면 자연 낙하
       if (p.phase !== 'ground'){
@@ -1070,26 +1209,23 @@ function drawPlayer(){
   game.frame++;
   const p = game.player;
   const onGround = (p.phase === 'ground');
-  let legs;
-  if (onGround){
-    legs = Math.floor(game.frame/6) % 2 === 0 ? LEGS_A : LEGS_B;
-  } else {
-    legs = LEGS_A;
-  }
+  const legs = curCharLegs(game.frame, onGround);
   const bobOffset = onGround ? (Math.floor(game.frame/6) % 2 === 0 ? 0 : -PX) : 0;
-  // 스턴 중 좌우 흔들림
   const stunned = (game.stunUntil||0) > performance.now();
   const shakeX = stunned ? Math.sin(performance.now()/35) * 3 : 0;
-  const sprite = SPRITE_BASE.concat(legs);
+  const body = curCharBody();
+  const sprite = body.concat(legs);
+  const charW = body[0].length * PX;
+  const charH = sprite.length * PX;
 
-  const ox = p.x - CHAR_W/2 + shakeX;
-  const oy = p.feetY - CHAR_H + bobOffset;
+  const ox = p.x - charW/2 + shakeX;
+  const oy = p.feetY - charH + bobOffset;
 
   // 그림자 — 항상 지면에 (점프해도 지면에 고정)
   const groundY = H - BOTTOM_MARGIN;
   const heightAbove = Math.max(0, groundY - p.feetY);
   const shadowAlpha = Math.max(0.06, 0.22 - heightAbove*0.0003);
-  const shadowW = CHAR_W - 4*PX - Math.min(CHAR_W*0.4, heightAbove*0.05);
+  const shadowW = curCharW() - 4*PX - Math.min(curCharW()*0.4, heightAbove*0.05);
   cx.fillStyle = `rgba(0,0,0,${shadowAlpha})`;
   pxRect(p.x - shadowW/2, groundY - PX, shadowW, PX);
 
