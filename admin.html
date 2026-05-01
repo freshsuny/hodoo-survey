@@ -125,18 +125,11 @@
     <!-- 프로그램 목록 -->
     <section id="list-view">
       <div class="card">
-        <h2>프로그램 목록 <button id="new-prog-btn" class="btn btn-primary">+ 새 프로그램</button></h2>
+        <h2 id="prog-section-title">프로그램 목록 <button id="new-prog-btn" class="btn btn-primary">+ 새 프로그램</button></h2>
         <div id="prog-list-container">
           <table id="prog-table">
             <thead>
-              <tr>
-                <th style="width:110px">일자</th>
-                <th>프로그램명</th>
-                <th>조사명</th>
-                <th style="width:80px;text-align:center">문항</th>
-                <th style="width:80px;text-align:center">응답</th>
-                <th style="width:200px;text-align:right">작업</th>
-              </tr>
+              <tr id="prog-thead-row"></tr>
             </thead>
             <tbody id="prog-tbody"></tbody>
           </table>
@@ -515,8 +508,17 @@ let programsCache = [];
 
 async function loadPrograms(){
   try {
-    const snap = await getDocs(query(collection(db,"programs"), orderBy("createdAt","desc")));
-    programsCache = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    let snap;
+    if (session.role === 'super'){
+      // 총괄: 전체 프로그램
+      snap = await getDocs(query(collection(db,"programs"), orderBy("createdAt","desc")));
+      programsCache = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    } else {
+      // 프로그램 관리자: 본인이 만든 것만 (인덱스 회피용 — orderBy 없이 가져와 클라이언트에서 정렬)
+      snap = await getDocs(query(collection(db,"programs"), where("createdBy","==",session.id)));
+      programsCache = snap.docs.map(d => ({id:d.id, ...d.data()}));
+      programsCache.sort((a,b) => ((b.createdAt&&b.createdAt.seconds)||0) - ((a.createdAt&&a.createdAt.seconds)||0));
+    }
     renderPrograms();
   } catch(e){
     console.error(e);
@@ -525,23 +527,50 @@ async function loadPrograms(){
 }
 
 function renderPrograms(){
+  const isSuper = session && session.role === 'super';
+  // 헤더 (역할별 라벨)
+  const sectionTitle = $("prog-section-title");
+  if (sectionTitle){
+    const titleText = isSuper
+      ? `프로그램 목록 <span class="badge" style="margin-left:6px">전체 ${programsCache.length}개</span>`
+      : `내 프로그램 <span class="badge" style="margin-left:6px">${programsCache.length}개</span>`;
+    sectionTitle.innerHTML = `<span>${titleText}</span><button id="new-prog-btn" class="btn btn-primary">+ 새 프로그램</button>`;
+    $("new-prog-btn").addEventListener("click", () => openEditModal(null));
+  }
+  // 테이블 헤더 (총괄에게는 생성자 컬럼 추가)
+  $("prog-thead-row").innerHTML = `
+    <th style="width:110px">일자</th>
+    <th>프로그램명</th>
+    <th>조사명</th>
+    <th style="width:80px;text-align:center">문항</th>
+    <th style="width:80px;text-align:center">응답</th>
+    ${isSuper ? '<th style="width:130px">생성자</th>' : ''}
+    <th style="width:240px;text-align:right">작업</th>
+  `;
   const tb = $("prog-tbody");
   tb.innerHTML = "";
   if (!programsCache.length){
     $("prog-table").style.display = "none";
     $("prog-empty").style.display = "block";
+    $("prog-empty").textContent = isSuper
+      ? '아직 등록된 프로그램이 없습니다. "+ 새 프로그램"을 눌러 시작하세요.'
+      : '내가 만든 프로그램이 없습니다. "+ 새 프로그램"으로 처음 만들어보세요.';
     return;
   }
   $("prog-table").style.display = "";
   $("prog-empty").style.display = "none";
   for (const p of programsCache){
     const tr = document.createElement("tr");
+    const creatorCell = isSuper
+      ? `<td style="font-size:12px">${escapeHtml(p.createdByName||p.createdBy||"-")}</td>`
+      : '';
     tr.innerHTML = `
       <td>${escapeHtml(p.date||"-")}</td>
       <td><strong>${escapeHtml(p.name||"(제목 없음)")}</strong></td>
       <td>${escapeHtml(p.surveyName||"-")}</td>
       <td style="text-align:center"><span class="badge">${(p.questions||[]).length}개</span></td>
       <td style="text-align:center" data-count="${p.id}">-</td>
+      ${creatorCell}
       <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-primary btn-sm" data-act="open" data-id="${p.id}">열기</button>
         <button class="btn btn-ghost btn-sm" data-act="edit" data-id="${p.id}">편집</button>
@@ -586,7 +615,7 @@ function copyProgram(p){
   $("edit-modal").classList.add("show");
 }
 
-$("new-prog-btn").addEventListener("click", () => openEditModal(null));
+// (new-prog-btn 리스너는 renderPrograms 내부에서 매 렌더마다 재바인딩됨)
 
 // ===== 편집 모달 =====
 let editingProg = null;
@@ -655,6 +684,8 @@ async function saveProgram(){
       toast("저장되었습니다");
     } else {
       data.createdAt = serverTimestamp();
+      data.createdBy = session.id; // 프로그램 관리자가 본인 프로그램만 보도록
+      data.createdByName = session.name;
       const ref = await addDoc(collection(db,"programs"), data);
       newId = ref.id;
       toast("새 프로그램이 생성되었습니다");
