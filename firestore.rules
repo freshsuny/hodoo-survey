@@ -44,6 +44,28 @@ service cloud.firestore {
       allow delete: if true;
     }
 
+    // -------- 참가자 정보 항목 (demographic_fields) --------
+    // 총괄 관리자가 라벨/옵션을 자유롭게 추가/수정. 게임 화면이 읽기 위해 read 공개.
+    match /demographic_fields/{fieldId} {
+      allow read: if true;
+      allow create: if
+        request.resource.data.keys().hasAny(['label','options']) &&
+        request.resource.data.label is string &&
+        request.resource.data.label.size() > 0 &&
+        request.resource.data.label.size() < 50 &&
+        request.resource.data.options is list &&
+        request.resource.data.options.size() >= 2 &&
+        request.resource.data.options.size() <= 30;
+      allow update: if
+        request.resource.data.label is string &&
+        request.resource.data.label.size() > 0 &&
+        request.resource.data.label.size() < 50 &&
+        request.resource.data.options is list &&
+        request.resource.data.options.size() >= 2 &&
+        request.resource.data.options.size() <= 30;
+      allow delete: if true;
+    }
+
     // -------- 관리자 계정 --------
     // (운영 시 Firebase Auth + custom claims로 강화 권장)
     match /admins/{adminId} {

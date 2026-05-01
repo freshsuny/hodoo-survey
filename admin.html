@@ -110,6 +110,25 @@
   </header>
 
   <main>
+    <!-- 정보 항목 관리 (총괄 전용) -->
+    <section id="demo-fields-section" style="display:none">
+      <div class="card">
+        <h2>참가자 정보 항목 관리 <span class="badge" style="background:#c63a3a;color:#fff;margin-left:6px">총괄 전용</span> <button id="new-demo-btn" class="btn btn-primary" style="margin-left:auto">+ 새 항목</button></h2>
+        <div style="font-size:12px;color:#9a7a5a;margin-bottom:10px">여기서 항목·옵션을 추가/수정하면 모든 프로그램의 참가자 입력 화면에 자동 반영됩니다.</div>
+        <table id="demo-fields-table">
+          <thead>
+            <tr>
+              <th style="width:120px">키</th>
+              <th style="width:140px">라벨</th>
+              <th>옵션</th>
+              <th style="width:200px;text-align:right">작업</th>
+            </tr>
+          </thead>
+          <tbody id="demo-fields-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- 관리자 관리 (총괄 전용) -->
     <section id="admins-section" style="display:none">
       <div class="card">
@@ -245,6 +264,30 @@
   </div>
 </div>
 
+<!-- 정보 항목 생성/수정 모달 -->
+<div id="demo-modal" class="modal-bg">
+  <div class="modal" style="max-width:480px">
+    <h3 id="demo-modal-title">새 정보 항목</h3>
+    <div class="field">
+      <label>키 <span style="color:#9a7a5a;font-weight:400;font-size:11px">(영문/숫자/언더스코어, 변경 불가)</span></label>
+      <input id="df-id" type="text" placeholder="예: department" maxlength="24">
+    </div>
+    <div class="field">
+      <label>라벨 <span style="color:#9a7a5a;font-weight:400;font-size:11px">(참가자에게 보여줄 이름)</span></label>
+      <input id="df-label" type="text" placeholder="예: 부서">
+    </div>
+    <div class="field">
+      <label>옵션 <span style="color:#9a7a5a;font-weight:400;font-size:11px">(한 줄에 하나씩)</span></label>
+      <textarea id="df-options" rows="6" style="width:100%;padding:10px 12px;border:1.5px solid #e0c89a;border-radius:8px;outline:none;background:#fffaf0;font-family:inherit;font-size:14px;resize:vertical" placeholder="예시:&#10;홍보팀&#10;사업팀&#10;경영지원팀"></textarea>
+    </div>
+    <div id="df-err" style="color:#c0392b;font-size:13px;margin-top:8px;display:none"></div>
+    <div class="modal-actions">
+      <button id="df-cancel" class="btn btn-ghost">취소</button>
+      <button id="df-save" class="btn btn-primary">저장</button>
+    </div>
+  </div>
+</div>
+
 <!-- 관리자 생성/수정 모달 -->
 <div id="admin-modal" class="modal-bg">
   <div class="modal" style="max-width:440px">
@@ -308,14 +351,15 @@ const SLOT_COLORS = ["#2e7d32","#7cb342","#fbc02d","#fb8c00","#e53935"];
 const SCORE_LABELS = ["매우불만족","불만족","보통","만족","매우만족"];
 const SCORE_COLORS = ["#e53935","#fb8c00","#fbc02d","#7cb342","#2e7d32"];
 
-// 참가자 정보 항목 (game.html과 동일하게 유지)
-const DEMO_DEFS = {
+// 참가자 정보 항목 — Firestore의 demographic_fields가 정답. 코드 값은 기본값/시드용.
+let DEMO_DEFS = {
   gender:  { label: "성별",   options: ["남","여"] },
   school:  { label: "교급",   options: ["초","중","고","대학","유아","일반"] },
   age:     { label: "연령",   options: ["10대","20대","30대","40대","50대","60대+"] },
-  role:    { label: "직급",   options: ["학생","교사","직원","관리자","일반인"] },
+  role:    { label: "직급",   options: ["임기직","팀장·센터장","대리","주임","사원"] },
   region:  { label: "지역",   options: ["천안","아산","당진","서산","기타"] }
 };
+const DEMO_FIELD_ORDER = { gender:10, school:20, age:30, role:40, region:50 };
 const DEFAULT_DEMOGRAPHICS = ["gender","school"];
 
 // 응답 객체에서 점수(1~5, 5=매우만족) 추출 — 신/구 데이터 호환
@@ -354,14 +398,153 @@ function tryAutoLogin(){
 function saveSession(){
   sessionStorage.setItem("hodoo_admin_session", JSON.stringify(session));
 }
-function enterApp(){
+async function enterApp(){
   $("login-screen").style.display = "none";
   $("app").style.display = "block";
   $("admin-info").innerHTML = `<span style="color:#fff">${escapeHtml(session.name||session.id)}</span><span class="${session.role==='super'?'role-super':'role-prog'}">${session.role==='super'?'총괄':'프로그램'}</span>`;
-  // 관리자 관리 섹션은 총괄에게만 표시
+  // 총괄 전용 섹션
   $("admins-section").style.display = (session.role === 'super') ? "" : "none";
-  loadPrograms();
-  if (session.role === 'super') loadAdmins();
+  $("demo-fields-section").style.display = (session.role === 'super') ? "" : "none";
+  // 정보 항목 먼저 로드 (프로그램 편집 모달이 의존)
+  await loadDemographicFields();
+  await loadPrograms();
+  if (session.role === 'super'){
+    loadAdmins();
+  }
+}
+
+// ===== 정보 항목 (demographic_fields) =====
+let demoFieldsCache = [];
+let demoLoadError = null;
+async function loadDemographicFields(){
+  demoLoadError = null;
+  try {
+    const snap = await getDocs(collection(db, "demographic_fields"));
+    demoFieldsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    demoFieldsCache.sort((a,b) => (a.order||999) - (b.order||999));
+    if (demoFieldsCache.length){
+      const merged = {};
+      demoFieldsCache.forEach(f => {
+        merged[f.id] = { label: f.label, options: f.options };
+      });
+      DEMO_DEFS = merged;
+    }
+  } catch(e){
+    console.error("demographic_fields load failed:", e);
+    demoLoadError = e;
+    demoFieldsCache = [];
+  }
+  renderDemoFields();
+}
+async function seedDemographicFieldsIfEmpty(){
+  if (demoFieldsCache.length > 0) return;
+  if (!confirm("참가자 정보 항목이 비어있습니다. 기본 5개(성별/교급/연령/직급/지역)를 자동 등록할까요?")) return;
+  try {
+    const seeds = [
+      { id:"gender", label:"성별", options:["남","여"], order:10 },
+      { id:"school", label:"교급", options:["초","중","고","대학","유아","일반"], order:20 },
+      { id:"age", label:"연령", options:["10대","20대","30대","40대","50대","60대+"], order:30 },
+      { id:"role", label:"직급", options:["임기직","팀장·센터장","대리","주임","사원"], order:40 },
+      { id:"region", label:"지역", options:["천안","아산","당진","서산","기타"], order:50 }
+    ];
+    for (const s of seeds){
+      await setDoc(doc(db, "demographic_fields", s.id), {
+        label: s.label, options: s.options, order: s.order, createdAt: serverTimestamp()
+      });
+    }
+    toast("기본 정보 항목 5개를 등록했습니다");
+    await loadDemographicFields();
+  } catch(e){ toast("시드 실패: " + e.message); }
+}
+function renderDemoFields(){
+  if (session?.role !== 'super') return;
+  const tb = $("demo-fields-tbody");
+  if (!tb) return;
+  tb.innerHTML = "";
+  // 권한 에러 안내 우선
+  if (demoLoadError && /permission/i.test(demoLoadError.message||"")){
+    tb.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:#c0392b;font-size:13px;line-height:1.6">⚠️ Firestore 규칙에 <code>demographic_fields</code> 규칙이 필요합니다.<br>콘솔에서 <a href="https://console.firebase.google.com/project/hodoo-survey/firestore/rules" target="_blank" style="color:#7d5a3c;font-weight:700">규칙 페이지</a>에 최신 firestore.rules 파일 내용을 게시해주세요.</td></tr>`;
+    return;
+  }
+  if (!demoFieldsCache.length){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td colspan="4" style="text-align:center;padding:30px;color:#9a7a5a">등록된 정보 항목이 없습니다. <button id="seed-demo-inline" class="btn btn-ghost btn-sm" style="margin-left:8px">기본 5개 가져오기</button></td>`;
+    tb.appendChild(tr);
+    $("seed-demo-inline")?.addEventListener("click", seedDemographicFieldsIfEmpty);
+    return;
+  }
+  for (const f of demoFieldsCache){
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><code>${escapeHtml(f.id)}</code></td>
+      <td><strong>${escapeHtml(f.label||"")}</strong></td>
+      <td style="font-size:12px;color:#5a3a1c">${(f.options||[]).map(escapeHtml).join(" · ")}</td>
+      <td style="text-align:right">
+        <button class="btn btn-ghost btn-sm" data-act="edit-demo" data-id="${escapeHtml(f.id)}">편집</button>
+        <button class="btn btn-danger btn-sm" data-act="del-demo" data-id="${escapeHtml(f.id)}">삭제</button>
+      </td>
+    `;
+    tb.appendChild(tr);
+  }
+  tb.querySelectorAll("button[data-act]").forEach(b => {
+    b.addEventListener("click", () => handleDemoFieldAction(b.dataset.act, b.dataset.id));
+  });
+}
+function handleDemoFieldAction(act, id){
+  const f = demoFieldsCache.find(x => x.id === id);
+  if (!f) return;
+  if (act === "edit-demo") openDemoModal(f);
+  else if (act === "del-demo") deleteDemoField(f);
+}
+let editingDemo = null;
+function openDemoModal(f){
+  editingDemo = f;
+  $("demo-modal-title").textContent = f ? "정보 항목 편집" : "새 정보 항목";
+  $("df-id").value = f ? f.id : "";
+  $("df-id").disabled = !!f;
+  $("df-label").value = f ? (f.label||"") : "";
+  $("df-options").value = f ? (f.options||[]).join("\n") : "";
+  $("df-err").style.display = "none";
+  $("demo-modal").classList.add("show");
+}
+$("new-demo-btn").addEventListener("click", () => openDemoModal(null));
+$("df-cancel").addEventListener("click", () => $("demo-modal").classList.remove("show"));
+$("df-save").addEventListener("click", async () => {
+  const id = $("df-id").value.trim();
+  const label = $("df-label").value.trim();
+  const options = $("df-options").value.split(/\r?\n/).map(o => o.trim()).filter(o => o);
+  if (!editingDemo){
+    if (!/^[a-zA-Z0-9_]{2,24}$/.test(id)){ showDfErr("키는 영문/숫자/언더스코어 2~24자."); return; }
+    if (demoFieldsCache.find(x => x.id === id)){ showDfErr("이미 있는 키입니다."); return; }
+  }
+  if (!label){ showDfErr("라벨을 입력하세요."); return; }
+  if (options.length < 2){ showDfErr("옵션을 2개 이상 입력하세요."); return; }
+  if (options.length > 20){ showDfErr("옵션은 20개까지 가능합니다."); return; }
+  try {
+    if (editingDemo){
+      await updateDoc(doc(db, "demographic_fields", editingDemo.id), {
+        label, options, updatedAt: serverTimestamp()
+      });
+      toast("저장되었습니다");
+    } else {
+      const nextOrder = (Math.max(0, ...demoFieldsCache.map(f => f.order||0))) + 10;
+      await setDoc(doc(db, "demographic_fields", id), {
+        label, options, order: nextOrder, createdAt: serverTimestamp()
+      });
+      toast("새 항목이 추가되었습니다");
+    }
+    $("demo-modal").classList.remove("show");
+    await loadDemographicFields();
+  } catch(e){ showDfErr("저장 실패: " + e.message); }
+});
+function showDfErr(msg){ $("df-err").textContent = msg; $("df-err").style.display = "block"; }
+async function deleteDemoField(f){
+  if (!confirm(`"${f.label}" 항목을 삭제할까요? 이 항목을 사용하는 기존 프로그램에서는 자동 비활성화됩니다.`)) return;
+  try {
+    await deleteDoc(doc(db, "demographic_fields", f.id));
+    toast("삭제되었습니다");
+    await loadDemographicFields();
+  } catch(e){ toast("삭제 실패: " + e.message); }
 }
 
 async function tryLogin(id, pw){

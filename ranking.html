@@ -29,6 +29,9 @@
   .medal-2{background:linear-gradient(180deg,#cfcfcf,#999);height:190px;order:1}
   .medal-3{background:linear-gradient(180deg,#cd7f32,#8b4513);height:170px;order:3}
   .empty-podium{height:170px;background:rgba(255,255,255,.4);border:2px dashed #c89b6a;border-radius:14px 14px 6px 6px;display:flex;align-items:center;justify-content:center;color:#9a7a5a;font-size:13px;flex:1 1 0}
+  .empty-1{order:2;height:230px}
+  .empty-2{order:1;height:190px}
+  .empty-3{order:3;height:170px}
 
   /* Top 10 list */
   .topbox{background:#fff;border-radius:14px;padding:20px 18px;box-shadow:0 6px 20px rgba(125,90,60,.12)}
@@ -143,9 +146,9 @@ async function load(){
 }
 
 function renderPodium(top3){
-  const empty = '<div class="empty-podium">미정</div>';
+  // 빈 자리도 order를 가져 1등이 항상 가운데 유지됨
   const cell = (e, rank) => {
-    if (!e) return empty;
+    if (!e) return `<div class="empty-podium empty-${rank}">${rank}등 미정</div>`;
     const cls = "medal medal-" + rank;
     const crown = rank === 1 ? "👑" : rank === 2 ? "🥈" : "🥉";
     return `
@@ -155,7 +158,6 @@ function renderPodium(top3){
         <div class="name" title="${escapeHtml(e.name)}">${escapeHtml(e.name)}</div>
         <div class="char">${escapeHtml(e.characterName||"")}</div>
         <div class="time">${fmtTime(e.totalSec)}</div>
-        <div class="score">${e.totalScore}점</div>
       </div>`;
   };
   return `
@@ -180,7 +182,7 @@ function renderTop(top){
         <div class="rank">${medal}</div>
         <div class="info">
           <div class="nm">${escapeHtml(e.name)} ${e.characterName ? '<span style="color:#9a7a5a;font-size:11px;font-weight:500">· '+escapeHtml(e.characterName)+'</span>' : ''}</div>
-          <div class="sub">${e.totalScore}점${e.penaltySec ? ' · 페널티 +'+e.penaltySec.toFixed(1)+'s' : ''}</div>
+          ${e.penaltySec ? `<div class="sub">페널티 +${e.penaltySec.toFixed(1)}s</div>` : ''}
         </div>
         <div class="time">${fmtTime(e.totalSec)}</div>
       </div>

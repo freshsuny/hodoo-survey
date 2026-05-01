@@ -176,12 +176,12 @@ const SLOT_COLORS = ["#2e7d32","#7cb342","#fbc02d","#fb8c00","#e53935"];
 const QUEUE_KEY = "hodoo_queue";
 const PROG_CACHE_KEY = pid => "hodoo_prog_" + pid;
 
-// 참가자 정보 항목 정의 (관리자가 프로그램별로 선택 가능)
-const DEMO_DEFS = {
+// 참가자 정보 항목 — 기본값 (Firestore에 demographic_fields 컬렉션 있으면 그걸로 덮어씀)
+let DEMO_DEFS = {
   gender:  { label: "성별",   options: ["남","여"] },
   school:  { label: "교급",   options: ["초","중","고","대학","유아","일반"] },
   age:     { label: "연령",   options: ["10대","20대","30대","40대","50대","60대+"] },
-  role:    { label: "직급",   options: ["학생","교사","직원","관리자","일반인"] },
+  role:    { label: "직급",   options: ["임기직","팀장·센터장","대리","주임","사원"] },
   region:  { label: "지역",   options: ["천안","아산","당진","서산","기타"] }
 };
 const DEFAULT_DEMOGRAPHICS = ["gender","school"]; // 구 데이터 호환용 기본값
@@ -208,6 +208,30 @@ async function flushQueue(){
   localStorage.setItem(QUEUE_KEY, JSON.stringify(remain));
 }
 flushQueue();
+
+async function loadDemographicFields(){
+  try {
+    const snap = await getDocs(collection(db, "demographic_fields"));
+    if (!snap.empty){
+      const merged = {};
+      snap.docs.forEach(d => {
+        const data = d.data();
+        if (data && Array.isArray(data.options)){
+          merged[d.id] = { label: data.label || d.id, options: data.options };
+        }
+      });
+      // Firestore가 비어있지 않으면 그것이 정답 (기본값과 병합 X)
+      if (Object.keys(merged).length) DEMO_DEFS = merged;
+    }
+  } catch(e){
+    console.error("demographic_fields load failed, using defaults:", e);
+  }
+}
+
+async function loadAll(){
+  // demographic_fields와 program을 병렬로 로드
+  await Promise.all([loadDemographicFields(), loadProgram()]);
+}
 
 async function loadProgram(){
   if (isDemo){
@@ -1331,7 +1355,7 @@ window.addEventListener("error", e => {
   console.error("game error:", e.message);
 });
 
-loadProgram();
+loadAll();
 </script>
 </body>
 </html>
