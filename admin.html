@@ -47,6 +47,8 @@
   .q-row textarea{flex:1;min-height:42px;resize:vertical;padding:8px 10px;border:1.5px solid #e0c89a;border-radius:6px;background:#fff}
   .q-row .q-actions{display:flex;flex-direction:column;gap:4px}
   .badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#fef6e7;color:#7d5a3c}
+  .role-super{background:#c63a3a;color:#fff;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+  .role-prog{background:#3498db;color:#fff;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
   .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#fef6e7,#f4ebd9)}
   .login-card{background:#fff;border-radius:18px;padding:36px;width:100%;max-width:380px;box-shadow:0 12px 36px rgba(125,90,60,.18)}
   .login-card h1{font-size:22px;color:#7d5a3c;margin-bottom:8px;text-align:center}
@@ -73,12 +75,17 @@
 <div id="login-screen" class="login-wrap">
   <div class="login-card">
     <h1>🏃 서베이런 관리자</h1>
-    <p>관리자 비밀번호를 입력하세요</p>
+    <p>아이디와 비밀번호를 입력하세요</p>
     <div class="field">
-      <input id="pw-input" type="password" placeholder="비밀번호" autocomplete="current-password">
+      <input id="login-id" type="text" placeholder="아이디" autocomplete="username" style="margin-bottom:8px">
+      <input id="login-pw" type="password" placeholder="비밀번호" autocomplete="current-password">
     </div>
-    <div id="pw-err" style="color:#c0392b;font-size:13px;margin-bottom:8px;display:none">비밀번호가 틀렸습니다.</div>
+    <div id="pw-err" style="color:#c0392b;font-size:13px;margin-bottom:8px;display:none">아이디 또는 비밀번호가 틀렸습니다.</div>
     <button id="login-btn" class="btn btn-primary" style="width:100%">로그인</button>
+    <div style="font-size:11px;color:#9a7a5a;margin-top:14px;text-align:center;line-height:1.5">
+      총괄 관리자 기본 계정: <code>super</code> / <code>hodoo2026</code><br>
+      (admin.html의 <code>SUPER_ADMIN</code> 값으로 변경 가능)
+    </div>
   </div>
 </div>
 
@@ -87,6 +94,7 @@
   <header>
     <h1>🏃 서베이런 - 관리자</h1>
     <div class="top-actions">
+      <span id="admin-info" style="font-size:13px;display:flex;align-items:center;gap:6px"></span>
       <span id="net-status" style="font-size:12px"></span>
       <button id="back-btn" style="display:none">← 목록으로</button>
       <button id="logout-btn">로그아웃</button>
@@ -94,6 +102,26 @@
   </header>
 
   <main>
+    <!-- 관리자 관리 (총괄 전용) -->
+    <section id="admins-section" style="display:none">
+      <div class="card">
+        <h2>관리자 계정 관리 <span class="badge" style="background:#c63a3a;color:#fff;margin-left:6px">총괄 전용</span> <button id="new-admin-btn" class="btn btn-primary" style="margin-left:auto">+ 새 관리자</button></h2>
+        <table id="admins-table">
+          <thead>
+            <tr>
+              <th style="width:140px">아이디</th>
+              <th>이름</th>
+              <th style="width:120px">역할</th>
+              <th style="width:140px">생성일</th>
+              <th style="width:160px;text-align:right">작업</th>
+            </tr>
+          </thead>
+          <tbody id="admins-tbody"></tbody>
+        </table>
+        <div id="admins-empty" class="empty" style="display:none">등록된 추가 관리자가 없습니다. "+ 새 관리자"로 프로그램 관리자 계정을 만들어주세요.</div>
+      </div>
+    </section>
+
     <!-- 프로그램 목록 -->
     <section id="list-view">
       <div class="card">
@@ -205,6 +233,37 @@
   </div>
 </div>
 
+<!-- 관리자 생성/수정 모달 -->
+<div id="admin-modal" class="modal-bg">
+  <div class="modal" style="max-width:440px">
+    <h3 id="admin-modal-title">새 관리자</h3>
+    <div class="field">
+      <label>아이디 <span style="color:#9a7a5a;font-weight:400;font-size:11px">(영문/숫자/언더스코어, 변경 불가)</span></label>
+      <input id="ma-id" type="text" placeholder="예: kim_min" maxlength="24">
+    </div>
+    <div class="field">
+      <label>이름</label>
+      <input id="ma-name" type="text" placeholder="실명 또는 부서명">
+    </div>
+    <div class="field">
+      <label>비밀번호</label>
+      <input id="ma-pw" type="text" placeholder="6자 이상">
+    </div>
+    <div class="field">
+      <label>역할</label>
+      <select id="ma-role" style="width:100%;padding:10px 12px;border:1.5px solid #e0c89a;border-radius:8px;outline:none;background:#fffaf0;font-family:inherit;font-size:14px">
+        <option value="program">프로그램 관리자 (프로그램 CRUD만 가능)</option>
+        <option value="super">총괄 관리자 (관리자 계정 + 프로그램 모두 가능)</option>
+      </select>
+    </div>
+    <div id="ma-err" style="color:#c0392b;font-size:13px;margin-top:8px;display:none"></div>
+    <div class="modal-actions">
+      <button id="ma-cancel" class="btn btn-ghost">취소</button>
+      <button id="ma-save" class="btn btn-primary">저장</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <!-- 외부 라이브러리 -->
@@ -228,7 +287,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const ADMIN_PW = "hodoo2026"; // 비밀번호 변경 시 이 줄만 수정
+// 총괄 관리자 fallback 계정 (Firestore에 admins 가 없을 때도 로그인 가능)
+const SUPER_ADMIN = { id: "super", password: "hodoo2026", role: "super", name: "총괄 관리자" };
+let session = null; // { id, role, name }
 const SLOT_LABELS = ["매우만족","만족","보통","불만족","매우불만족"]; // 슬롯 1~5
 const SLOT_COLORS = ["#2e7d32","#7cb342","#fbc02d","#fb8c00","#e53935"];
 // 점수 1~5 (반전: 1=매우불만족, 5=매우만족)
@@ -261,28 +322,185 @@ function fmtTs(ts){
   return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes());
 }
 
-// ===== 로그인 =====
+// ===== 로그인 (다중 관리자) =====
 function tryAutoLogin(){
-  if (sessionStorage.getItem("hodoo_admin")==="1"){ enterApp(); }
+  const s = sessionStorage.getItem("hodoo_admin_session");
+  if (s){
+    try { session = JSON.parse(s); enterApp(); } catch(e){}
+  }
+}
+function saveSession(){
+  sessionStorage.setItem("hodoo_admin_session", JSON.stringify(session));
 }
 function enterApp(){
   $("login-screen").style.display = "none";
   $("app").style.display = "block";
+  $("admin-info").innerHTML = `<span style="color:#fff">${escapeHtml(session.name||session.id)}</span><span class="${session.role==='super'?'role-super':'role-prog'}">${session.role==='super'?'총괄':'프로그램'}</span>`;
+  // 관리자 관리 섹션은 총괄에게만 표시
+  $("admins-section").style.display = (session.role === 'super') ? "" : "none";
   loadPrograms();
+  if (session.role === 'super') loadAdmins();
 }
-$("login-btn").addEventListener("click", () => {
-  if ($("pw-input").value === ADMIN_PW){
-    sessionStorage.setItem("hodoo_admin","1");
-    enterApp();
-  } else {
-    $("pw-err").style.display = "block";
+
+async function tryLogin(id, pw){
+  // 총괄 fallback 계정
+  if (id === SUPER_ADMIN.id && pw === SUPER_ADMIN.password){
+    session = { id: SUPER_ADMIN.id, role: SUPER_ADMIN.role, name: SUPER_ADMIN.name };
+    saveSession();
+    return true;
   }
+  // Firestore admins
+  try {
+    const snap = await getDoc(doc(db, "admins", id));
+    if (snap.exists()){
+      const d = snap.data();
+      if (d.password === pw){
+        session = { id, role: d.role || 'program', name: d.name || id };
+        saveSession();
+        return true;
+      }
+    }
+  } catch(e){ console.error("login lookup error:", e); }
+  return false;
+}
+$("login-btn").addEventListener("click", async () => {
+  const id = $("login-id").value.trim();
+  const pw = $("login-pw").value;
+  if (!id || !pw){ $("pw-err").textContent = "아이디와 비밀번호를 모두 입력하세요."; $("pw-err").style.display = "block"; return; }
+  $("login-btn").disabled = true;
+  const ok = await tryLogin(id, pw);
+  $("login-btn").disabled = false;
+  if (ok){ $("pw-err").style.display = "none"; enterApp(); }
+  else { $("pw-err").textContent = "아이디 또는 비밀번호가 틀렸습니다."; $("pw-err").style.display = "block"; }
 });
-$("pw-input").addEventListener("keydown", e => { if (e.key==="Enter") $("login-btn").click(); });
+$("login-id").addEventListener("keydown", e => { if (e.key==="Enter") $("login-pw").focus(); });
+$("login-pw").addEventListener("keydown", e => { if (e.key==="Enter") $("login-btn").click(); });
 $("logout-btn").addEventListener("click", () => {
-  sessionStorage.removeItem("hodoo_admin");
+  sessionStorage.removeItem("hodoo_admin_session");
+  session = null;
   location.reload();
 });
+
+// ===== 관리자 계정 관리 (총괄만) =====
+let adminsCache = [];
+async function loadAdmins(){
+  if (!session || session.role !== 'super') return;
+  try {
+    const snap = await getDocs(collection(db, "admins"));
+    adminsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAdmins();
+  } catch(e){
+    console.error(e);
+    adminsCache = [];
+    renderAdmins(); // fallback super라도 표시
+    if (e.code === 'permission-denied' || /permission/i.test(e.message)){
+      toast("Firestore 규칙에 admins 규칙 추가 필요");
+    } else {
+      toast("관리자 목록 로드 실패: " + e.message);
+    }
+  }
+}
+function renderAdmins(){
+  const tb = $("admins-tbody");
+  tb.innerHTML = "";
+  // 항상 총괄(super) 표시 (Firestore에 추가된 super도 포함, 기본 fallback super는 별도 행)
+  const fallbackRow = document.createElement("tr");
+  fallbackRow.innerHTML = `
+    <td><code>${SUPER_ADMIN.id}</code></td>
+    <td><strong>${SUPER_ADMIN.name}</strong></td>
+    <td><span class="role-super">총괄</span></td>
+    <td style="color:#9a7a5a">기본 계정</td>
+    <td style="text-align:right;color:#9a7a5a;font-size:12px">코드에 하드코딩</td>
+  `;
+  tb.appendChild(fallbackRow);
+  if (!adminsCache.length){
+    $("admins-empty").style.display = "block";
+  } else {
+    $("admins-empty").style.display = "none";
+    for (const a of adminsCache){
+      const tr = document.createElement("tr");
+      const isSelf = (a.id === session.id);
+      tr.innerHTML = `
+        <td><code>${escapeHtml(a.id)}</code>${isSelf?' <span style="color:#7d5a3c;font-size:11px">(나)</span>':''}</td>
+        <td><strong>${escapeHtml(a.name||"")}</strong></td>
+        <td><span class="${a.role==='super'?'role-super':'role-prog'}">${a.role==='super'?'총괄':'프로그램'}</span></td>
+        <td>${fmtTs(a.createdAt)}</td>
+        <td style="text-align:right">
+          <button class="btn btn-ghost btn-sm" data-act="edit-admin" data-id="${a.id}">비밀번호 변경</button>
+          <button class="btn btn-danger btn-sm" data-act="del-admin" data-id="${a.id}" ${isSelf?'disabled':''}>삭제</button>
+        </td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+  tb.querySelectorAll("button").forEach(b => {
+    b.addEventListener("click", () => handleAdminAction(b.dataset.act, b.dataset.id));
+  });
+}
+function handleAdminAction(act, id){
+  const a = adminsCache.find(x => x.id === id);
+  if (!a) return;
+  if (act === "edit-admin"){
+    openAdminModal(a);
+  } else if (act === "del-admin"){
+    deleteAdmin(a);
+  }
+}
+let editingAdmin = null;
+function openAdminModal(a){
+  editingAdmin = a;
+  $("admin-modal-title").textContent = a ? "관리자 비밀번호 변경" : "새 관리자";
+  $("ma-id").value = a ? a.id : "";
+  $("ma-id").disabled = !!a; // 편집 시 ID 불가
+  $("ma-name").value = a ? (a.name||"") : "";
+  $("ma-pw").value = "";
+  $("ma-role").value = a ? (a.role||"program") : "program";
+  $("ma-role").disabled = !!a; // 역할도 변경 불가 (재발급 형태)
+  $("ma-err").style.display = "none";
+  $("admin-modal").classList.add("show");
+}
+$("new-admin-btn").addEventListener("click", () => openAdminModal(null));
+$("ma-cancel").addEventListener("click", () => $("admin-modal").classList.remove("show"));
+$("ma-save").addEventListener("click", async () => {
+  const id = $("ma-id").value.trim();
+  const name = $("ma-name").value.trim();
+  const pw = $("ma-pw").value;
+  const role = $("ma-role").value;
+  if (!editingAdmin){
+    if (!/^[a-zA-Z0-9_]{3,24}$/.test(id)){ showMaErr("아이디는 영문/숫자/언더스코어 3~24자."); return; }
+    if (id === SUPER_ADMIN.id){ showMaErr("기본 계정 ID는 사용할 수 없습니다."); return; }
+    if (adminsCache.find(a => a.id === id)){ showMaErr("이미 존재하는 아이디입니다."); return; }
+  }
+  if (!name){ showMaErr("이름을 입력하세요."); return; }
+  if (pw.length < 6){ showMaErr("비밀번호는 6자 이상으로 설정하세요."); return; }
+  try {
+    if (editingAdmin){
+      await updateDoc(doc(db, "admins", editingAdmin.id), { name, password: pw, updatedAt: serverTimestamp() });
+      toast("비밀번호가 변경되었습니다");
+    } else {
+      await setDoc(doc(db, "admins", id), {
+        name, password: pw, role,
+        createdAt: serverTimestamp(),
+        createdBy: session.id
+      });
+      toast("새 관리자가 추가되었습니다");
+    }
+    $("admin-modal").classList.remove("show");
+    await loadAdmins();
+  } catch(e){
+    showMaErr("저장 실패: " + e.message);
+  }
+});
+function showMaErr(msg){ $("ma-err").textContent = msg; $("ma-err").style.display = "block"; }
+async function deleteAdmin(a){
+  if (a.id === session.id){ toast("자신의 계정은 삭제할 수 없습니다."); return; }
+  if (!confirm(`"${a.name}" (${a.id}) 관리자를 삭제하시겠습니까?`)) return;
+  try {
+    await deleteDoc(doc(db, "admins", a.id));
+    toast("삭제되었습니다");
+    await loadAdmins();
+  } catch(e){ toast("삭제 실패: " + e.message); }
+}
 
 // ===== 네트워크 표시 =====
 function updateNet(){
@@ -324,9 +542,10 @@ function renderPrograms(){
       <td>${escapeHtml(p.surveyName||"-")}</td>
       <td style="text-align:center"><span class="badge">${(p.questions||[]).length}개</span></td>
       <td style="text-align:center" data-count="${p.id}">-</td>
-      <td style="text-align:right">
+      <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-primary btn-sm" data-act="open" data-id="${p.id}">열기</button>
         <button class="btn btn-ghost btn-sm" data-act="edit" data-id="${p.id}">편집</button>
+        <button class="btn btn-ghost btn-sm" data-act="copy" data-id="${p.id}">복사</button>
         <button class="btn btn-danger btn-sm" data-act="del" data-id="${p.id}">삭제</button>
       </td>
     `;
@@ -350,7 +569,21 @@ function handleProgAction(act, id){
   if (!p) return;
   if (act==="open") openDetail(p);
   else if (act==="edit") openEditModal(p);
+  else if (act==="copy") copyProgram(p);
   else if (act==="del") deleteProgram(p);
+}
+
+function copyProgram(p){
+  // "새로 만들기" 모드로 모달 오픈, 기존 데이터를 prefill
+  editingProg = null;
+  $("edit-modal-title").textContent = "프로그램 복사";
+  $("m-name").value = (p.name || "") + " (복사)";
+  $("m-date").value = new Date().toISOString().slice(0,10);
+  $("m-survey").value = p.surveyName || "";
+  const qs = (p.questions || []).map(q => q.text || q || "").filter(t => t);
+  renderQuestionRows(qs.length ? qs : ["프로그램에 만족하셨습니까?"]);
+  $("m-err").style.display = "none";
+  $("edit-modal").classList.add("show");
 }
 
 $("new-prog-btn").addEventListener("click", () => openEditModal(null));
