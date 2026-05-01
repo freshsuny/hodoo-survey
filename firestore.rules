@@ -67,14 +67,12 @@ service cloud.firestore {
     // -------- 응답 --------
     match /responses/{responseId} {
       allow create: if
-        request.resource.data.keys().hasAll(['programId','name','phone','answers']) &&
+        request.resource.data.keys().hasAll(['programId','name','answers']) &&
         request.resource.data.programId is string &&
         request.resource.data.programId.size() > 0 &&
         request.resource.data.name is string &&
         request.resource.data.name.size() > 0 &&
         request.resource.data.name.size() < 50 &&
-        request.resource.data.phone is string &&
-        request.resource.data.phone.size() <= 4 &&
         request.resource.data.answers is list &&
         request.resource.data.answers.size() <= 30;
 

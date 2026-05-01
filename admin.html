@@ -49,6 +49,14 @@
   .badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;background:#fef6e7;color:#7d5a3c}
   .role-super{background:#c63a3a;color:#fff;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
   .role-prog{background:#3498db;color:#fff;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+  .demo-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .demo-pill{cursor:pointer}
+  .demo-pill input{display:none}
+  .demo-pill .box{display:block;padding:10px 12px;border:2px solid #e8d4b6;border-radius:8px;background:#fffaf0;font-size:13px;color:#7d5a3c;transition:all .12s}
+  .demo-pill .box .ttl{font-weight:700;display:block}
+  .demo-pill .box .opt{font-size:11px;color:#9a7a5a;display:block;margin-top:2px}
+  .demo-pill input:checked + .box{background:linear-gradient(135deg,#fff7d0,#ffe2a0);border-color:#d9a040;box-shadow:0 2px 6px rgba(217,160,64,.25)}
+  .demo-pill input:checked + .box .ttl{color:#7a5410}
   .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#fef6e7,#f4ebd9)}
   .login-card{background:#fff;border-radius:18px;padding:36px;width:100%;max-width:380px;box-shadow:0 12px 36px rgba(125,90,60,.18)}
   .login-card h1{font-size:22px;color:#7d5a3c;margin-bottom:8px;text-align:center}
@@ -161,6 +169,7 @@
               <button id="copy-url-btn" class="btn btn-ghost btn-sm">링크 복사</button>
               <button id="download-qr-btn" class="btn btn-ghost btn-sm">QR 이미지 저장</button>
               <button id="open-game-btn" class="btn btn-ghost btn-sm">새 탭에서 열기</button>
+              <button id="open-ranking-btn" class="btn btn-primary btn-sm">🏆 순위 페이지</button>
             </div>
           </div>
         </div>
@@ -209,9 +218,19 @@
         <input id="m-survey" type="text" placeholder="예: 2026 봄 청소년 동아리 만족도">
       </div>
     </div>
+    <div class="grid-2">
+      <div class="field">
+        <label>프로그램명</label>
+        <input id="m-name" type="text" placeholder="예: 4월 청소년 동아리 한마당">
+      </div>
+      <div class="field">
+        <label>담당자</label>
+        <input id="m-manager" type="text" placeholder="예: 청소년팀 김민수">
+      </div>
+    </div>
     <div class="field">
-      <label>프로그램명</label>
-      <input id="m-name" type="text" placeholder="예: 4월 청소년 동아리 한마당">
+      <label>참가자 정보 항목 <span style="color:#9a7a5a;font-weight:400;font-size:11px">(체크한 항목만 게임 시작 전에 묻습니다 · 닉네임/캐릭터는 항상 필수)</span></label>
+      <div class="demo-grid" id="m-demos"></div>
     </div>
     <div class="field">
       <label>설문 문항 <span style="color:#9a7a5a;font-weight:400">(각 문항당 5점 척도)</span></label>
@@ -288,6 +307,16 @@ const SLOT_COLORS = ["#2e7d32","#7cb342","#fbc02d","#fb8c00","#e53935"];
 // 점수 1~5 (반전: 1=매우불만족, 5=매우만족)
 const SCORE_LABELS = ["매우불만족","불만족","보통","만족","매우만족"];
 const SCORE_COLORS = ["#e53935","#fb8c00","#fbc02d","#7cb342","#2e7d32"];
+
+// 참가자 정보 항목 (game.html과 동일하게 유지)
+const DEMO_DEFS = {
+  gender:  { label: "성별",   options: ["남","여"] },
+  school:  { label: "교급",   options: ["초","중","고","대학","유아","일반"] },
+  age:     { label: "연령",   options: ["10대","20대","30대","40대","50대","60대+"] },
+  role:    { label: "직급",   options: ["학생","교사","직원","관리자","일반인"] },
+  region:  { label: "지역",   options: ["천안","아산","당진","서산","기타"] }
+};
+const DEFAULT_DEMOGRAPHICS = ["gender","school"];
 
 // 응답 객체에서 점수(1~5, 5=매우만족) 추출 — 신/구 데이터 호환
 function ansScore(a){
@@ -626,10 +655,31 @@ function openEditModal(p){
   $("m-name").value = p ? (p.name||"") : "";
   $("m-date").value = p ? (p.date||"") : new Date().toISOString().slice(0,10);
   $("m-survey").value = p ? (p.surveyName||"") : "";
+  $("m-manager").value = p ? (p.manager||"") : "";
+  // demographics 체크박스 렌더
+  renderDemoCheckboxes(p ? (p.demographics || DEFAULT_DEMOGRAPHICS) : DEFAULT_DEMOGRAPHICS);
   const qs = (p && p.questions) ? p.questions.map(q => q.text || q) : ["프로그램에 만족하셨습니까?"];
   renderQuestionRows(qs);
   $("m-err").style.display = "none";
   $("edit-modal").classList.add("show");
+}
+
+function renderDemoCheckboxes(selected){
+  const grid = $("m-demos");
+  grid.innerHTML = "";
+  Object.keys(DEMO_DEFS).forEach(id => {
+    const def = DEMO_DEFS[id];
+    const checked = selected.includes(id);
+    const lbl = document.createElement("label");
+    lbl.className = "demo-pill";
+    lbl.innerHTML =
+      '<input type="checkbox" data-demo="'+id+'"'+(checked?' checked':'')+'>'+
+      '<div class="box">'+
+        '<span class="ttl">'+escapeHtml(def.label)+'</span>'+
+        '<span class="opt">'+def.options.map(escapeHtml).join(" / ")+'</span>'+
+      '</div>';
+    grid.appendChild(lbl);
+  });
 }
 
 function renderQuestionRows(qs){
@@ -672,10 +722,12 @@ async function saveProgram(){
   const name = $("m-name").value.trim();
   const date = $("m-date").value;
   const surveyName = $("m-survey").value.trim();
+  const manager = $("m-manager").value.trim();
+  const demographics = [...document.querySelectorAll("#m-demos input[data-demo]:checked")].map(c => c.dataset.demo);
   const qs = [...document.querySelectorAll("#m-questions .q-text")].map(t => t.value.trim()).filter(t=>t).map(t => ({text:t, type:"likert5"}));
   if (!name){ showMErr("프로그램명을 입력해주세요"); return; }
   if (!qs.length){ showMErr("문항을 1개 이상 입력해주세요"); return; }
-  const data = { name, date, surveyName, questions: qs, updatedAt: serverTimestamp() };
+  const data = { name, date, surveyName, manager, demographics, questions: qs, updatedAt: serverTimestamp() };
   try {
     let newId = editingProg ? editingProg.id : null;
     const wasNew = !editingProg;
@@ -727,10 +779,13 @@ function openDetail(p){
   $("detail-view").style.display = "block";
   $("back-btn").style.display = "inline-block";
   $("detail-title").querySelector("span").textContent = p.name;
+  const demoLabels = (p.demographics || DEFAULT_DEMOGRAPHICS).map(id => DEMO_DEFS[id]?.label || id).join("·");
   $("detail-meta").innerHTML = `
     <span class="badge">${escapeHtml(p.date||"-")}</span>
     ${p.surveyName ? `<span class="badge" style="margin-left:6px">${escapeHtml(p.surveyName)}</span>` : ""}
+    ${p.manager ? `<span class="badge" style="margin-left:6px">담당: ${escapeHtml(p.manager)}</span>` : ""}
     <span class="badge" style="margin-left:6px">${(p.questions||[]).length}개 문항</span>
+    ${demoLabels ? `<span class="badge" style="margin-left:6px">정보: ${escapeHtml(demoLabels)}</span>` : ""}
   `;
   // QR 생성
   const url = GAME_BASE + "?p=" + p.id;
@@ -762,6 +817,11 @@ $("copy-url-btn").addEventListener("click", () => {
 });
 $("open-game-btn").addEventListener("click", () => {
   window.open($("qr-url").textContent, "_blank");
+});
+$("open-ranking-btn").addEventListener("click", () => {
+  if (!currentProg) return;
+  const url = location.href.replace(/admin\.html.*/, "ranking.html") + "?p=" + currentProg.id;
+  window.open(url, "_blank");
 });
 $("download-qr-btn").addEventListener("click", async () => {
   if (!currentProg) return;
@@ -863,9 +923,11 @@ function renderResponses(){
   }).join("");
   $("q-summary").innerHTML = sumHtml;
 
-  // 응답 테이블 (성별·교급·캐릭터·총점 컬럼 추가)
+  // 응답 테이블 — demographics는 프로그램 설정에 따라 동적
+  const demoIds = currentProg.demographics || DEFAULT_DEMOGRAPHICS;
   const head = $("resp-head");
-  head.innerHTML = "<th>응답시각</th><th>닉네임</th><th>성별</th><th>교급</th><th>캐릭터</th><th>전화뒷4</th><th>시간</th><th>페널티</th><th>총점</th>" +
+  const demoHeads = demoIds.map(id => `<th>${escapeHtml(DEMO_DEFS[id]?.label || id)}</th>`).join("");
+  head.innerHTML = "<th>응답시각</th><th>닉네임</th><th>캐릭터</th>" + demoHeads + "<th>시간</th><th>페널티</th><th>총점</th>" +
     qs.map((q,i)=>`<th title="${escapeHtml(q.text||q)}">Q${i+1}</th>`).join("");
   const tb = $("resp-tbody");
   tb.innerHTML = "";
@@ -877,13 +939,13 @@ function renderResponses(){
       total = (r.answers||[]).reduce((s,a)=>s+(ansScore(a)||0),0);
     }
     const max = r.maxScore || ((qs.length)*5);
+    const demos = r.demographics || {};
+    const demoCells = demoIds.map(id => `<td>${escapeHtml(demos[id] || r[id] || "-")}</td>`).join("");
     let tds = `
       <td>${fmtTs(r.ts || r.clientTs)}</td>
       <td><strong>${escapeHtml(r.name||"")}</strong></td>
-      <td>${escapeHtml(r.gender||"-")}</td>
-      <td>${escapeHtml(r.school||"-")}</td>
       <td>${escapeHtml(r.characterName||"-")}</td>
-      <td>${escapeHtml(r.phone||"")}</td>
+      ${demoCells}
       <td>${(r.timeSec||0).toFixed(1)}s</td>
       <td>${(r.penaltySec||0).toFixed(1)}s</td>
       <td><strong style="color:#c9881d">${total}/${max}</strong></td>
@@ -916,21 +978,27 @@ $("excel-btn").addEventListener("click", () => {
       total = (r.answers||[]).reduce((s,a)=>s+(ansScore(a)||0),0);
     }
     const max = r.maxScore || ((qs.length)*5);
+    const demos = r.demographics || {};
     const row = {
       "응답시각": fmtTs(r.ts || r.clientTs),
       "조사명": r.surveyName || currentProg.surveyName || "",
       "프로그램명": r.programName || currentProg.name || "",
       "일자": r.date || currentProg.date || "",
+      "담당자": currentProg.manager || "",
       "닉네임": r.name || "",
-      "성별": r.gender || "",
-      "교급": r.school || "",
-      "캐릭터": r.characterName || "",
-      "전화뒷4": r.phone || "",
+      "캐릭터": r.characterName || ""
+    };
+    // 동적 demographics 컬럼
+    (currentProg.demographics || DEFAULT_DEMOGRAPHICS).forEach(id => {
+      const lbl = DEMO_DEFS[id]?.label || id;
+      row[lbl] = demos[id] || r[id] || "";
+    });
+    Object.assign(row, {
       "총점": total,
       "만점": max,
       "완주시간(초)": r.timeSec || 0,
       "패널티(초)": r.penaltySec || 0
-    };
+    });
     for (let i=0;i<qs.length;i++){
       const a = (r.answers||[])[i];
       const qt = qs[i].text || qs[i] || ("Q"+(i+1));
