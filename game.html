@@ -153,7 +153,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getFirestore, doc, getDoc, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBPI8wugVUAOcehqDkYHa-xXFX5vSKgWs4",
@@ -277,7 +277,8 @@ function showIntro(){
   // demographics 동적 렌더
   renderDemographicFields();
   const saved = JSON.parse(sessionStorage.getItem("hodoo_user")||"{}");
-  if (saved.name) $("nickname").value = saved.name;
+  // 닉네임은 의도적으로 복원하지 않음 — 매 응답마다 새 입력
+  $("nickname").value = "";
   // 저장된 demographic 값 복원
   const demoIds = program.demographics || DEFAULT_DEMOGRAPHICS;
   for (const id of demoIds){
@@ -372,7 +373,8 @@ $("start-btn").addEventListener("click", () => {
   }
   $("form-err").textContent = "";
   const charId = currentChar.id;
-  sessionStorage.setItem("hodoo_user", JSON.stringify({name, demographics, charId}));
+  // 닉네임은 세션에 저장 X — 매 응답마다 새로 입력하도록 강제
+  sessionStorage.setItem("hodoo_user", JSON.stringify({demographics, charId}));
   startGame({name, demographics, charId});
 });
 
@@ -738,15 +740,28 @@ function spawnNextWall(distance, qIdx, includeObstacle = true){
     passed: false,
     qIdx: qIdx
   });
-  // 벽 사이에 장애물 2~3개 배치 — 메인 챌린지
+  // 벽 사이에 장애물 2~3개 — 충분한 간격 보장 (점프 후 착지 시간 확보)
   if (includeObstacle){
     const numObs = 2 + Math.floor(Math.random() * 2); // 2 또는 3
-    for (let i = 0; i < numObs; i++){
-      // 균등 분배 + 약간의 랜덤 (벽 가까이엔 두지 않음)
-      const slot = (i + 0.5 + Math.random()*0.5) / numObs;
-      const offset = distance * (0.18 + slot * 0.62);
-      game.obstacles.push(makeObstacle(W + offset));
+    const startBuf = 260;             // 이전 벽 통과 직후엔 두지 않음
+    const endBuf = 260;               // 다음 벽 직전에도 두지 않음
+    const usable = Math.max(0, distance - startBuf - endBuf);
+    const minSpacing = 290;            // 장애물 간 최소 간격 (점프 통과 + 착지 + 재점프 시간)
+    let positions = [];
+    if (numObs === 1){
+      positions = [startBuf + usable/2];
+    } else if (usable < minSpacing * (numObs - 1)){
+      // 공간이 부족하면 균등 분배만
+      const span = usable / (numObs - 1);
+      for (let i = 0; i < numObs; i++) positions.push(startBuf + i * span);
+    } else {
+      // 균등 분배 + 작은 jitter
+      const span = usable / (numObs - 1);
+      for (let i = 0; i < numObs; i++){
+        positions.push(startBuf + i * span + (Math.random()-0.5)*30);
+      }
     }
+    positions.forEach(off => game.obstacles.push(makeObstacle(W + off)));
   }
   // 배너 — 프로그램에 등록되어 있으면 1~2개 게시
   const banners = (program && program.banners) || [];
@@ -999,57 +1014,90 @@ function getBannerImage(url){
 }
 function drawBanner(b){
   const x = b.x;
-  const w = 130, h = 88;
-  const y = TOP_MARGIN + 10;
-  if (x + w/2 < -10 || x - w/2 > W + 10) return;
-  const groundY = H - BOTTOM_MARGIN;
-  // 기둥
-  cx.fillStyle = "#5a3a18";
-  pxRect(x - 2, y + h, 4, groundY - (y + h) - 4);
-  // 프레임
-  cx.fillStyle = "#4a2a08";
-  pxRect(x - w/2 - 4, y - 4, w + 8, h + 8);
+  const w = 130, h = 70;
+  const t = performance.now() / 1000;
+  // 살짝 흔들림 (떠있는 느낌)
+  const sway = Math.sin(t * 1.2 + b.x * 0.01) * 3;
+  const bob = Math.sin(t * 0.8 + b.x * 0.02) * 2;
+  const baseY = 14 + bob;          // 캔버스 최상단
+  const y = baseY + 22;            // 풍선 아래 배너 시작
+  if (x + w/2 < -20 || x - w/2 > W + 20) return;
+
+  // 양쪽 풍선 (빨강/파랑)
+  const balloonR = 9;
+  const ballX1 = x - 30 + sway*0.3;
+  const ballX2 = x + 30 + sway*0.3;
+  const ballY = baseY;
+  // 풍선 1 (빨강)
+  cx.fillStyle = "#e74c3c";
+  cx.beginPath(); cx.arc(ballX1, ballY, balloonR, 0, Math.PI*2); cx.fill();
+  cx.fillStyle = "rgba(255,255,255,.6)";
+  cx.beginPath(); cx.arc(ballX1 - 3, ballY - 3, 2.5, 0, Math.PI*2); cx.fill();
+  // 풍선 2 (파랑)
+  cx.fillStyle = "#3498db";
+  cx.beginPath(); cx.arc(ballX2, ballY, balloonR, 0, Math.PI*2); cx.fill();
+  cx.fillStyle = "rgba(255,255,255,.6)";
+  cx.beginPath(); cx.arc(ballX2 - 3, ballY - 3, 2.5, 0, Math.PI*2); cx.fill();
+  // 풍선 끈
+  cx.strokeStyle = "#7d5a3c";
+  cx.lineWidth = 1.4;
+  cx.beginPath();
+  cx.moveTo(ballX1, ballY + balloonR);
+  cx.lineTo(x - w/2 + 12 + sway, y);
+  cx.moveTo(ballX2, ballY + balloonR);
+  cx.lineTo(x + w/2 - 12 + sway, y);
+  cx.stroke();
+
+  // 배너 본체
+  const bx = x + sway;
+  // 프레임 (빨강)
+  cx.fillStyle = "#c63a3a";
+  pxRect(bx - w/2 - 3, y - 3, w + 6, h + 6);
   cx.fillStyle = "#fff";
-  pxRect(x - w/2, y, w, h);
+  pxRect(bx - w/2, y, w, h);
   // 이미지 또는 fallback
   const img = b.url ? getBannerImage(b.url) : null;
   if (img && img.complete && img.naturalWidth && !img.failed){
     cx.save();
     cx.beginPath();
-    cx.rect(x - w/2, y, w, h);
+    cx.rect(bx - w/2, y, w, h);
     cx.clip();
-    // 비율 유지하며 채움
     const sr = img.naturalWidth / img.naturalHeight;
     const tr = w / h;
-    let dw, dh, dx, dy;
+    let dw, dh, dxx, dyy;
     if (sr > tr){
-      dh = h; dw = h * sr; dx = x - dw/2; dy = y;
+      dh = h; dw = h * sr; dxx = bx - dw/2; dyy = y;
     } else {
-      dw = w; dh = w / sr; dx = x - w/2; dy = y + (h - dh) / 2;
+      dw = w; dh = w / sr; dxx = bx - w/2; dyy = y + (h - dh) / 2;
     }
-    cx.drawImage(img, dx, dy, dw, dh);
+    cx.drawImage(img, dxx, dyy, dw, dh);
     cx.restore();
+    // 캡션 — 이미지 위에 어두운 배경 띠
+    if (b.caption){
+      cx.fillStyle = "rgba(0,0,0,.65)";
+      pxRect(bx - w/2, y + h - 18, w, 18);
+      cx.fillStyle = "#fff";
+      cx.font = "bold 11px -apple-system,sans-serif";
+      cx.textAlign = "center";
+      cx.textBaseline = "middle";
+      cx.fillText(b.caption, bx, y + h - 9);
+    }
   } else {
-    // fallback: 캡션만 큰 글씨로
-    cx.fillStyle = "#fef6e7";
-    pxRect(x - w/2 + 2, y + 2, w - 4, h - 4);
-    cx.fillStyle = "#7d5a3c";
+    // 이미지 없으면 캡션만 큰 글씨
+    cx.fillStyle = "#c63a3a";
     cx.font = "bold 14px -apple-system,sans-serif";
     cx.textAlign = "center";
     cx.textBaseline = "middle";
-    cx.fillText(b.caption || "📢 홍보", x, y + h/2);
+    cx.fillText("📢 " + (b.caption || "광고"), bx, y + h/2);
   }
-  // 캡션 (이미지 아래)
-  if (b.caption){
-    const cw = Math.max(80, Math.min(w + 20, b.caption.length * 8 + 16));
-    cx.fillStyle = "#7d5a3c";
-    pxRect(x - cw/2, y + h + 4, cw, 20);
-    cx.fillStyle = "#fff";
-    cx.font = "bold 12px -apple-system,sans-serif";
-    cx.textAlign = "center";
-    cx.textBaseline = "middle";
-    cx.fillText(b.caption, x, y + h + 14);
-  }
+  // "AD" 작은 라벨 (오른쪽 위)
+  cx.fillStyle = "#fdd835";
+  pxRect(bx + w/2 - 22, y + 2, 20, 12);
+  cx.fillStyle = "#3a2814";
+  cx.font = "bold 9px monospace";
+  cx.textAlign = "center";
+  cx.textBaseline = "middle";
+  cx.fillText("AD", bx + w/2 - 12, y + 8);
 }
 cv.addEventListener("touchstart", e => { e.preventDefault(); jump(); }, {passive:false});
 cv.addEventListener("mousedown", jump);
@@ -1076,39 +1124,8 @@ function loop(t){
   const moveX = stunned ? 0 : SPEED * dt;
   if (!stunned) game.runX += moveX;
 
-  // 배너(홍보물) 업데이트 + 그리기 — 충돌 없는 데코레이션
-  for (const b of (game.banners||[])){
-    b.x -= moveX;
-    drawBanner(b);
-  }
-  game.banners = (game.banners||[]).filter(b => b.x > -200);
-
-  // 장애물 업데이트 + 충돌 검사 + 그리기 (높이별 충돌)
-  const groundY0 = H - BOTTOM_MARGIN;
-  for (const o of (game.obstacles||[])){
-    o.x -= moveX;
-    drawObstacle(o);
-    if (o.passed) continue;
-    const hw = obstacleHalfW(o);
-    const oh = obstacleHeight(o);
-    const obsTop = groundY0 - oh;
-    const overlapX = Math.abs(o.x - game.player.x) < hw + curCharW()*0.35;
-    if (overlapX){
-      // 플레이어 발이 장애물 윗면보다 아래(=장애물에 부딪힘)
-      if (game.player.feetY > obsTop - PX){
-        o.passed = true;
-        game.stunUntil = now + 700;
-        game.penaltyMs = (game.penaltyMs||0) + 700;
-        spawnText(game.player.x, game.player.feetY - curCharH() - 8, "충돌!", "#e53935");
-      } else if (o.x + hw < game.player.x){
-        o.passed = true;
-      }
-    }
-  }
-  game.obstacles = (game.obstacles||[]).filter(o => o.x > -60);
-
-  // 플레이어 phase 기반 업데이트
-  // ground → (탭) → rising → holding(짧음) → falling → ground
+  // *** 플레이어 phase 기반 업데이트를 충돌 검사보다 먼저 실행 ***
+  // (탭 직후 같은 프레임에서 장애물 충돌 검사 시 stale feetY 사용 방지)
   const p = game.player;
   const groundY = H - BOTTOM_MARGIN;
   if (p.phase === 'rising'){
@@ -1119,7 +1136,7 @@ function loop(t){
     if (Math.abs(dy) < 1){
       p.feetY = target;
       p.phase = 'holding';
-      p.holdEnd = performance.now() + 220; // 정점에서 살짝 정지
+      p.holdEnd = performance.now() + 220;
     }
   } else if (p.phase === 'holding'){
     if (performance.now() >= (p.holdEnd||0)){
@@ -1133,10 +1150,42 @@ function loop(t){
       p.feetY = groundY;
       p.vy = 0;
       p.phase = 'ground';
-      // tapCount은 유지 (벽 통과시 사용) — 단, 플레이어가 다시 탭하면 jump()에서 1로 리셋
     }
   }
   updateSlotIndicator();
+
+  // 배너(홍보물) — 상단 떠있는 애드벌룬, 충돌 없음
+  for (const b of (game.banners||[])){
+    b.x -= moveX;
+    drawBanner(b);
+  }
+  game.banners = (game.banners||[]).filter(b => b.x > -200);
+
+  // 장애물 업데이트 + 충돌 검사 (이제 업데이트된 p.feetY 사용)
+  const groundY0 = H - BOTTOM_MARGIN;
+  for (const o of (game.obstacles||[])){
+    o.x -= moveX;
+    drawObstacle(o);
+    if (o.passed) continue;
+    const hw = obstacleHalfW(o);
+    const oh = obstacleHeight(o);
+    const obsTop = groundY0 - oh;
+    // 충돌 영역 좁힘 — 옆구리 살짝 스쳐도 통과 가능 (0.35→0.28)
+    const overlapX = Math.abs(o.x - p.x) < hw + curCharW()*0.28;
+    if (overlapX){
+      // 플레이어가 장애물보다 위면 통과, 아니면 충돌
+      // 여유 6px — 살짝 부족한 점프도 봐줌
+      if (p.feetY > obsTop + 6){
+        o.passed = true;
+        game.stunUntil = now + 700;
+        game.penaltyMs = (game.penaltyMs||0) + 700;
+        spawnText(p.x, p.feetY - curCharH() - 8, "충돌!", "#e53935");
+      } else if (o.x + hw < p.x){
+        o.passed = true;
+      }
+    }
+  }
+  game.obstacles = (game.obstacles||[]).filter(o => o.x > -60);
 
   // 벽 업데이트 + 충돌
   for (const w of game.walls){
@@ -1441,7 +1490,7 @@ async function uploadResponse(data){
 $("replay-btn").addEventListener("click", () => {
   $("result").classList.add("hidden");
   $("nickname").value = "";
-  $("phone").value = "";
+  $("nickname").focus?.();
   $("intro").classList.remove("hidden");
 });
 
