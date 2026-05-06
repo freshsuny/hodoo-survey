@@ -42,6 +42,10 @@
   .modal{background:#fff;border-radius:14px;padding:26px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 16px 60px rgba(0,0,0,.3)}
   .modal h3{font-size:18px;color:#7d5a3c;margin-bottom:16px}
   .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid #ebd9b6}
+  .b-row{display:grid;grid-template-columns:1fr 180px 36px;gap:6px;margin-bottom:6px;padding:8px;background:#fef6e7;border-radius:8px;align-items:center}
+  .b-row input{width:100%;padding:8px 10px;border:1.5px solid #e0c89a;border-radius:6px;background:#fff;font-size:13px}
+  .b-row .b-del{background:#fef0ef;color:#c0392b;border:1px solid #f5c6c2;border-radius:6px;font-size:14px;cursor:pointer;padding:6px 0}
+  .b-row .b-preview{display:none}
   .q-row{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px;padding:8px;background:#fef6e7;border-radius:8px}
   .q-row .q-num{font-weight:700;color:#7d5a3c;min-width:28px;padding-top:8px;text-align:center}
   .q-row textarea{flex:1;min-height:42px;resize:vertical;padding:8px 10px;border:1.5px solid #e0c89a;border-radius:6px;background:#fff}
@@ -255,6 +259,11 @@
       <label>설문 문항 <span style="color:#9a7a5a;font-weight:400">(각 문항당 5점 척도)</span></label>
       <div id="m-questions"></div>
       <button id="m-add-q" class="btn btn-ghost btn-sm" style="margin-top:6px">+ 문항 추가</button>
+    </div>
+    <div class="field">
+      <label>홍보 배너 <span style="color:#9a7a5a;font-weight:400;font-size:11px">(질문과 질문 사이에 게시 · 이미지 URL + 캡션, 선택)</span></label>
+      <div id="m-banners"></div>
+      <button id="m-add-banner" class="btn btn-ghost btn-sm" style="margin-top:6px">+ 배너 추가</button>
     </div>
     <div id="m-err" style="color:#c0392b;font-size:13px;margin-top:8px;display:none"></div>
     <div class="modal-actions">
@@ -843,8 +852,28 @@ function openEditModal(p){
   renderDemoCheckboxes(p ? (p.demographics || DEFAULT_DEMOGRAPHICS) : DEFAULT_DEMOGRAPHICS);
   const qs = (p && p.questions) ? p.questions.map(q => q.text || q) : ["프로그램에 만족하셨습니까?"];
   renderQuestionRows(qs);
+  // 배너
+  renderBannerRows((p && p.banners) ? p.banners : []);
   $("m-err").style.display = "none";
   $("edit-modal").classList.add("show");
+}
+
+function renderBannerRows(banners){
+  const c = $("m-banners");
+  c.innerHTML = "";
+  banners.forEach(b => addBRow(b.url || "", b.caption || ""));
+}
+function addBRow(url="", caption=""){
+  const c = $("m-banners");
+  const div = document.createElement("div");
+  div.className = "b-row";
+  div.innerHTML = `
+    <input class="b-url" placeholder="이미지 URL (https://...)" value="${escapeHtml(url)}">
+    <input class="b-caption" placeholder="캡션 (선택)" value="${escapeHtml(caption)}" maxlength="40">
+    <button type="button" class="b-del" title="삭제">×</button>
+  `;
+  div.querySelector(".b-del").addEventListener("click", () => div.remove());
+  c.appendChild(div);
 }
 
 function renderDemoCheckboxes(selected){
@@ -898,6 +927,7 @@ function bindQActions(){
   });
 }
 $("m-add-q").addEventListener("click", () => addQRow(""));
+$("m-add-banner").addEventListener("click", () => addBRow("",""));
 $("m-cancel").addEventListener("click", () => $("edit-modal").classList.remove("show"));
 $("m-save").addEventListener("click", saveProgram);
 
@@ -908,9 +938,14 @@ async function saveProgram(){
   const manager = $("m-manager").value.trim();
   const demographics = [...document.querySelectorAll("#m-demos input[data-demo]:checked")].map(c => c.dataset.demo);
   const qs = [...document.querySelectorAll("#m-questions .q-text")].map(t => t.value.trim()).filter(t=>t).map(t => ({text:t, type:"likert5"}));
+  // 배너 — URL이 있는 것만 저장
+  const banners = [...document.querySelectorAll("#m-banners .b-row")].map(r => ({
+    url: r.querySelector(".b-url").value.trim(),
+    caption: r.querySelector(".b-caption").value.trim()
+  })).filter(b => b.url || b.caption);
   if (!name){ showMErr("프로그램명을 입력해주세요"); return; }
   if (!qs.length){ showMErr("문항을 1개 이상 입력해주세요"); return; }
-  const data = { name, date, surveyName, manager, demographics, questions: qs, updatedAt: serverTimestamp() };
+  const data = { name, date, surveyName, manager, demographics, questions: qs, banners, updatedAt: serverTimestamp() };
   try {
     let newId = editingProg ? editingProg.id : null;
     const wasNew = !editingProg;
