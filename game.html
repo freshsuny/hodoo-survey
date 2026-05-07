@@ -112,8 +112,8 @@
     <button id="start-btn" class="start-btn">시작하기</button>
     <div class="help">
       <b>1탭=매우만족(5점) · 2탭=만족 · 3탭=보통 · 4탭=불만족 · 5탭=매우불만족(1점)</b><br>
-      공중에서 빠르게 연타할수록 위 칸으로 올라갑니다.<br>
-      탭하지 않으면 답이 안 됩니다 — 꼭 점프하세요!
+      벽이 도착하는 순간 <b>공중</b>에서의 탭 횟수가 답변으로 기록됩니다.<br>
+      그냥 걸어서 통과하면 자동으로 <b>매우만족(5점)</b> 처리됩니다.
     </div>
   </div>
 </div>
@@ -1205,20 +1205,22 @@ function loop(t){
     drawWall(w);
     if (!w.passed && w.x + WALL_W*0.5 <= p.x){
       w.passed = true;
-      // *** 중요: 탭 횟수를 캡처하고 즉시 리셋 ***
-      // 이 한 줄로 다음 벽이 같은 프레임/이후 프레임에서 항상 0 보이게 보장
-      // (직전 점프 점수가 다음 벽으로 이월되는 버그 방지)
+      // *** 핵심 규칙: 지면(ground)에 있으면 무조건 5점 매우만족 ***
+      // 직전 점프 점수가 이월되는 버그를 원천 차단:
+      // - 점프 답변은 공중(rising/holding/falling)에 있을 때만 유효
+      // - 걸어서 통과(ground) = 항상 5점 + 페널티
       const tapsAtPass = p.tapCount;
-      p.tapCount = 0;
-      // 답변/점수 계산
+      const wasOnGround = (p.phase === 'ground');
+      p.tapCount = 0; // 즉시 리셋
       let slot, score, missed = false;
-      if (tapsAtPass === 0){
-        // 점프 없이 걸어서 통과 = 항상 5점 매우만족 + 페널티
+      if (wasOnGround || tapsAtPass === 0){
+        // 지면에 있었거나 탭 안 했으면 = 5점 매우만족
         slot = 1;
         score = 5;
         missed = true;
         game.penaltyMs = (game.penaltyMs||0) + 1500;
       } else {
+        // 공중에서 탭한 횟수를 답변으로 인정
         slot = Math.min(5, tapsAtPass);
         score = 6 - slot;
       }
