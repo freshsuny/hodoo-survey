@@ -1205,17 +1205,21 @@ function loop(t){
     drawWall(w);
     if (!w.passed && w.x + WALL_W*0.5 <= p.x){
       w.passed = true;
-      // 탭 횟수가 곧 슬롯 (1탭=슬롯1, 5탭=슬롯5). 점수는 반전: 슬롯1=5점, 슬롯5=1점
+      // *** 중요: 탭 횟수를 캡처하고 즉시 리셋 ***
+      // 이 한 줄로 다음 벽이 같은 프레임/이후 프레임에서 항상 0 보이게 보장
+      // (직전 점프 점수가 다음 벽으로 이월되는 버그 방지)
+      const tapsAtPass = p.tapCount;
+      p.tapCount = 0;
+      // 답변/점수 계산
       let slot, score, missed = false;
-      if (p.tapCount === 0){
-        // 점프 없이 걸어서 통과 = 항상 5점 매우만족 (시간 페널티만 부여)
-        // 직전 점프 점수 영향 X — slot/score 모두 명시적 고정
+      if (tapsAtPass === 0){
+        // 점프 없이 걸어서 통과 = 항상 5점 매우만족 + 페널티
         slot = 1;
         score = 5;
         missed = true;
         game.penaltyMs = (game.penaltyMs||0) + 1500;
       } else {
-        slot = Math.min(5, p.tapCount);
+        slot = Math.min(5, tapsAtPass);
         score = 6 - slot;
       }
       game.answers.push({
@@ -1224,19 +1228,15 @@ function loop(t){
         slot: slot,
         label: SLOT_LABELS[slot-1]
       });
-      // 획득 점수 누적 (5점=매우만족이 가장 높음 → 매우만족 응답을 자연스럽게 유도)
       game.totalScore += score;
       $("total-score").textContent = game.totalScore;
       flashHole(slot);
-      // 미점프든 점프든 동일하게 +N점 표시 (warning 제거 — 사용자 요청)
-      // 미점프는 슬롯1=5점 매우만족 + 페널티만 부과
       spawnText(p.x, p.feetY - curCharH() - 12, "+" + score + "점 " + SLOT_LABELS[slot-1], SLOT_COLORS[slot-1]);
-      // 벽 통과 후 다음 벽을 위해 리셋 — 공중이면 자연 낙하
+      // 벽 통과 후 공중이면 자연 낙하
       if (p.phase !== 'ground'){
         p.phase = 'falling';
         p.vy = 0;
       }
-      p.tapCount = 0;
       game.qIdx++;
       if (game.qIdx < game.questions.length){
         $("q-text").textContent = game.questions[game.qIdx].text || game.questions[game.qIdx];
