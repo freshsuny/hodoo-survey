@@ -582,8 +582,8 @@ const SLOTS = 5;
 // ===== 점프 물리 (결정론적: 탭 N번 = 슬롯 N) =====
 const GRAVITY = 0.0028;        // px/ms²
 const SPEED = 0.32;            // 벽 스크롤 속도 px/ms
-const FIRST_DIST = 1000;       // 첫 벽까지 거리 — 길게 (배너+장애물 공간 확보)
-const WALL_DIST = 1100;        // 이후 벽 간격 — 길게
+const FIRST_DIST = 1300;       // 첫 벽까지 거리 — 더 길게 (배너+장애물 통과 여유)
+const WALL_DIST = 1400;        // 이후 벽 간격 — 더 길게
 // 슬롯 높이를 줄임 — 답변은 "살짝 점프" 느낌, 메인 챌린지는 장애물 통과
 let SLOT_HS = [50, 130, 210, 290, 370];
 const BASE_SLOT_HS = [50, 130, 210, 290, 370];
@@ -740,25 +740,23 @@ function spawnNextWall(distance, qIdx, includeObstacle = true){
     passed: false,
     qIdx: qIdx
   });
-  // 벽 사이에 장애물 2~3개 — 충분한 간격 보장 (점프 후 착지 시간 확보)
+  // 벽 사이에 장애물 2~3개 — 충분한 간격 보장 (점프 → 착지 → 재점프 여유)
   if (includeObstacle){
     const numObs = 2 + Math.floor(Math.random() * 2); // 2 또는 3
-    const startBuf = 260;             // 이전 벽 통과 직후엔 두지 않음
-    const endBuf = 260;               // 다음 벽 직전에도 두지 않음
+    const startBuf = 320;             // 이전 벽 직후엔 두지 않음
+    const endBuf = 320;               // 다음 벽 직전에도 두지 않음
     const usable = Math.max(0, distance - startBuf - endBuf);
-    const minSpacing = 290;            // 장애물 간 최소 간격 (점프 통과 + 착지 + 재점프 시간)
+    const minSpacing = 380;            // 장애물 간 최소 간격 — 더 넓게
     let positions = [];
     if (numObs === 1){
       positions = [startBuf + usable/2];
     } else if (usable < minSpacing * (numObs - 1)){
-      // 공간이 부족하면 균등 분배만
       const span = usable / (numObs - 1);
       for (let i = 0; i < numObs; i++) positions.push(startBuf + i * span);
     } else {
-      // 균등 분배 + 작은 jitter
       const span = usable / (numObs - 1);
       for (let i = 0; i < numObs; i++){
-        positions.push(startBuf + i * span + (Math.random()-0.5)*30);
+        positions.push(startBuf + i * span + (Math.random()-0.5)*20);
       }
     }
     positions.forEach(off => game.obstacles.push(makeObstacle(W + off)));
@@ -1012,9 +1010,22 @@ function getBannerImage(url){
   bannerImageCache[url] = img;
   return img;
 }
+function bannerWidth(caption){
+  // 캡션 글자수에 따라 동적 너비 (한글 ~13px/자, 영문 8px/자 보수적 추정)
+  if (!caption) return 130;
+  // 한글 vs 영문 혼합 추정
+  let pixelEstimate = 0;
+  for (const ch of caption){
+    pixelEstimate += /[a-zA-Z0-9 .,!?\-]/.test(ch) ? 8 : 13;
+  }
+  const w = pixelEstimate + 50; // 좌우 여백 + AD 라벨 공간
+  return Math.max(120, Math.min(280, w));
+}
+
 function drawBanner(b){
   const x = b.x;
-  const w = 130, h = 70;
+  const w = bannerWidth(b.caption);
+  const h = 70;
   const t = performance.now() / 1000;
   // 살짝 흔들림 (떠있는 느낌)
   const sway = Math.sin(t * 1.2 + b.x * 0.01) * 3;
@@ -1023,10 +1034,11 @@ function drawBanner(b){
   const y = baseY + 22;            // 풍선 아래 배너 시작
   if (x + w/2 < -20 || x - w/2 > W + 20) return;
 
-  // 양쪽 풍선 (빨강/파랑)
+  // 양쪽 풍선 (빨강/파랑) — 배너 너비에 따라 양 끝 안쪽으로
   const balloonR = 9;
-  const ballX1 = x - 30 + sway*0.3;
-  const ballX2 = x + 30 + sway*0.3;
+  const balloonOffset = Math.min(w*0.35, 50);
+  const ballX1 = x - balloonOffset + sway*0.3;
+  const ballX2 = x + balloonOffset + sway*0.3;
   const ballY = baseY;
   // 풍선 1 (빨강)
   cx.fillStyle = "#e74c3c";
@@ -1194,15 +1206,18 @@ function loop(t){
     if (!w.passed && w.x + WALL_W*0.5 <= p.x){
       w.passed = true;
       // 탭 횟수가 곧 슬롯 (1탭=슬롯1, 5탭=슬롯5). 점수는 반전: 슬롯1=5점, 슬롯5=1점
-      let slot, missed = false;
+      let slot, score, missed = false;
       if (p.tapCount === 0){
+        // 점프 없이 걸어서 통과 = 항상 5점 매우만족 (시간 페널티만 부여)
+        // 직전 점프 점수 영향 X — slot/score 모두 명시적 고정
         slot = 1;
+        score = 5;
         missed = true;
         game.penaltyMs = (game.penaltyMs||0) + 1500;
       } else {
         slot = Math.min(5, p.tapCount);
+        score = 6 - slot;
       }
-      const score = 6 - slot;
       game.answers.push({
         q: game.questions[w.qIdx].text || game.questions[w.qIdx],
         a: score,
